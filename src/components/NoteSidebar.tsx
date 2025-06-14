@@ -101,7 +101,7 @@ const NoteSidebar = ({
       const currentIsLast = [...isLast, isLastItem];
       
       const noteContent = (
-        <div key={note.id} className="select-none relative">
+        <div key={note.id} className="select-none relative group/item">
           {/* Tree lines */}
           {level > 0 && (
             <div className="absolute left-0 top-0 bottom-0 pointer-events-none">
@@ -145,7 +145,7 @@ const NoteSidebar = ({
                 }
               }}
               className={cn(
-                "flex items-center p-2 h-8 hover:bg-accent/50 group transition-all duration-200 relative",
+                "flex items-center p-2 h-8 hover:bg-accent/50 transition-all duration-200 relative",
                 selectedNoteId === note.id && note.type === 'note' && "bg-accent/30 shadow-sm",
                 note.type === 'folder' && "hover:bg-accent/30"
               )}
@@ -190,7 +190,7 @@ const NoteSidebar = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto ml-2"
+                      className="opacity-0 group-hover/item:opacity-100 transition-opacity p-1 h-auto ml-2"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <MoreHorizontal size={14} />
