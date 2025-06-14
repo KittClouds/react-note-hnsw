@@ -20,6 +20,7 @@ import { Plus, Search, Moon, Sun, FileText, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import RichEditor from '@/components/RichEditor';
 import { ParsedConnections } from '@/utils/parsingUtils';
+import { NoteContextMenu } from '@/components/NoteContextMenu';
 
 interface Note {
   id: string;
@@ -201,6 +202,14 @@ const NotesApp = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [createNewNote]);
 
+  const renameNote = useCallback((id: string, newTitle: string) => {
+    updateNote(id, { title: newTitle });
+    toast({
+      title: "Note renamed",
+      description: `Note renamed to "${newTitle}"`,
+    });
+  }, [updateNote]);
+
   return (
     <div className={isDarkMode ? 'dark' : ''}>
       <SidebarProvider>
@@ -211,6 +220,7 @@ const NotesApp = () => {
             onSelectNote={setSelectedNoteId}
             onCreateNote={createNewNote}
             onDeleteNote={deleteNote}
+            onRenameNote={renameNote}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             isDarkMode={isDarkMode}
@@ -277,6 +287,7 @@ interface NoteSidebarProps {
   onSelectNote: (id: string) => void;
   onCreateNote: () => void;
   onDeleteNote: (id: string) => void;
+  onRenameNote: (id: string, newTitle: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   isDarkMode: boolean;
@@ -289,6 +300,7 @@ const NoteSidebar = ({
   onSelectNote,
   onCreateNote,
   onDeleteNote,
+  onRenameNote,
   searchQuery,
   onSearchChange,
   isDarkMode,
@@ -327,18 +339,20 @@ const NoteSidebar = ({
           <>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Notes</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleDarkMode}
-              >
-                {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </Button>
+              <div className="flex items-center gap-2">
+                <NoteContextMenu
+                  onNewNote={onCreateNote}
+                  className="opacity-100"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggleDarkMode}
+                >
+                  {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
-            <Button onClick={onCreateNote} className="w-full mb-4">
-              <Plus className="h-4 w-4 mr-2" />
-              New Note
-            </Button>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -367,11 +381,11 @@ const NoteSidebar = ({
                   )
                 ) : (
                   notes.map((note) => (
-                    <SidebarMenuItem key={note.id}>
+                    <SidebarMenuItem key={note.id} className="group">
                       <SidebarMenuButton
                         onClick={() => onSelectNote(note.id)}
                         className={`
-                          w-full justify-start text-left p-3 h-auto
+                          w-full justify-start text-left p-3 h-auto relative
                           ${selectedNoteId === note.id ? 'bg-accent text-accent-foreground' : ''}
                         `}
                       >
@@ -394,17 +408,15 @@ const NoteSidebar = ({
                             )}
                           </div>
                           {!isCollapsed && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteNote(note.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 h-6 w-6 p-0"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            <div className="flex items-center gap-1 ml-2">
+                              <NoteContextMenu
+                                noteId={note.id}
+                                noteTitle={note.title}
+                                onNewNote={onCreateNote}
+                                onRename={(newTitle) => onRenameNote(note.id, newTitle)}
+                                onDelete={() => onDeleteNote(note.id)}
+                              />
+                            </div>
                           )}
                         </div>
                       </SidebarMenuButton>
