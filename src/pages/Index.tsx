@@ -257,7 +257,8 @@ const NoteSidebar = ({
   isDarkMode,
   onToggleDarkMode
 }: NoteSidebarProps) => {
-  const { collapsed } = useSidebar();
+  const { state } = useSidebar();
+  const isCollapsed = state === 'collapsed';
 
   const getPreview = (content: string) => {
     const tempDiv = document.createElement('div');
@@ -278,9 +279,9 @@ const NoteSidebar = ({
   };
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-80"} collapsible>
+    <Sidebar className={isCollapsed ? "w-14" : "w-80"} collapsible="offcanvas">
       <SidebarHeader className="p-4">
-        {!collapsed && (
+        {!isCollapsed && (
           <>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Notes</h2>
@@ -316,7 +317,7 @@ const NoteSidebar = ({
             <SidebarMenu>
               <ScrollArea className="h-[calc(100vh-200px)]">
                 {notes.length === 0 ? (
-                  !collapsed && (
+                  !isCollapsed && (
                     <div className="p-4 text-center text-muted-foreground">
                       <FileText className="h-8 w-8 mx-auto mb-2" />
                       <p className="text-sm">No notes yet</p>
@@ -334,7 +335,7 @@ const NoteSidebar = ({
                       >
                         <div className="flex items-start justify-between w-full">
                           <div className="flex-1 min-w-0">
-                            {collapsed ? (
+                            {isCollapsed ? (
                               <FileText className="h-4 w-4" />
                             ) : (
                               <>
@@ -350,7 +351,7 @@ const NoteSidebar = ({
                               </>
                             )}
                           </div>
-                          {!collapsed && (
+                          {!isCollapsed && (
                             <Button
                               variant="ghost"
                               size="sm"
