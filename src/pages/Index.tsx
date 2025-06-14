@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -27,6 +26,7 @@ const DEFAULT_CONTENT = JSON.stringify({
     }
   ]
 });
+import NoteHeader from '@/components/NoteHeader';
 
 const NotesApp = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -260,25 +260,17 @@ const NotesApp = () => {
           />
           
           <SidebarInset>
-            <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
-              <div className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <SidebarTrigger />
-                  <h1 className="text-lg font-semibold">
-                    {selectedNote?.title || 'Select a note'}
-                  </h1>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsDarkMode(prev => !prev)}
-                  >
-                    {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-            </header>
+            <NoteHeader selectedNote={selectedNote} notes={notes} />
+
+            <div className="flex items-center justify-end px-4 py-2 border-b bg-background/50">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsDarkMode(prev => !prev)}
+              >
+                {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+            </div>
 
             <div className="flex-1 overflow-hidden">
               {selectedNote ? (
