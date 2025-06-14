@@ -28,6 +28,7 @@ const DEFAULT_CONTENT = JSON.stringify({
 });
 import NoteHeader from '@/components/NoteHeader';
 import ConnectionsPanel from '@/components/ConnectionsPanel';
+import RightSidebar from '@/components/RightSidebar';
 
 const NotesApp = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -274,14 +275,17 @@ const NotesApp = () => {
               onTitleChange={handleTitleChange}
             />
 
-            <div className="flex items-center justify-end px-4 py-1 border-b bg-background/50">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsDarkMode(prev => !prev)}
-              >
-                {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </Button>
+            <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
+              <div></div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsDarkMode(prev => !prev)}
+                >
+                  {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -318,6 +322,8 @@ const NotesApp = () => {
               )}
             </div>
           </SidebarInset>
+
+          <RightSidebar />
         </div>
       </SidebarProvider>
     </div>
