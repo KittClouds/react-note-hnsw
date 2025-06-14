@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Search, Plus, FileText, Folder, FolderOpen, ChevronRight, MoreHorizontal } from 'lucide-react';
@@ -56,6 +55,7 @@ const NoteSidebar = ({
   onToggleFolder,
 }: NoteSidebarProps) => {
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const truncateText = (text: string, length: number = 60) => {
     const plainText = text.replace(/<[^>]*>/g, '');
@@ -101,7 +101,12 @@ const NoteSidebar = ({
       const currentIsLast = [...isLast, isLastItem];
       
       const noteContent = (
-        <div key={note.id} className="select-none relative group/item">
+        <div 
+          key={note.id} 
+          className="select-none relative"
+          onMouseEnter={() => setHoveredId(note.id)}
+          onMouseLeave={() => setHoveredId(null)}
+        >
           {/* Tree lines */}
           {level > 0 && (
             <div className="absolute left-0 top-0 bottom-0 pointer-events-none">
@@ -190,7 +195,10 @@ const NoteSidebar = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="opacity-0 group-hover/item:opacity-100 transition-opacity p-1 h-auto ml-2"
+                      className={cn(
+                        "transition-opacity p-1 h-auto ml-2",
+                        hoveredId === note.id ? "opacity-100" : "opacity-0"
+                      )}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <MoreHorizontal size={14} />
