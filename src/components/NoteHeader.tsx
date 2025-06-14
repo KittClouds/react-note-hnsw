@@ -1,4 +1,3 @@
-
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
   Breadcrumb,
@@ -80,7 +79,7 @@ const NoteHeader = ({ selectedNote, notes, onTitleChange }: NoteHeaderProps) => 
       </div>
       
       {selectedNote && (
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-2">
           <Input
             value={selectedNote.title}
             onChange={handleTitleChange}
