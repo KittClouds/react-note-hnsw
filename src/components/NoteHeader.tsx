@@ -8,14 +8,16 @@ import {
   BreadcrumbSeparator,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import { Input } from "@/components/ui/input";
 import { Note } from '@/types/note';
 
 interface NoteHeaderProps {
   selectedNote: Note | null;
   notes: Note[];
+  onTitleChange?: (noteId: string, newTitle: string) => void;
 }
 
-const NoteHeader = ({ selectedNote, notes }: NoteHeaderProps) => {
+const NoteHeader = ({ selectedNote, notes, onTitleChange }: NoteHeaderProps) => {
   const buildBreadcrumbs = (note: Note | null): Note[] => {
     if (!note) return [];
     
@@ -34,11 +36,17 @@ const NoteHeader = ({ selectedNote, notes }: NoteHeaderProps) => {
     return breadcrumbs;
   };
 
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (selectedNote && onTitleChange) {
+      onTitleChange(selectedNote.id, e.target.value);
+    }
+  };
+
   const breadcrumbs = buildBreadcrumbs(selectedNote);
 
   return (
-    <header className="h-12 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
-      <div className="flex items-center justify-between px-4 py-3 h-full">
+    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+      <div className="flex items-center justify-between px-4 py-3 h-12">
         <div className="flex items-center gap-3">
           <SidebarTrigger />
           
@@ -70,6 +78,17 @@ const NoteHeader = ({ selectedNote, notes }: NoteHeaderProps) => {
           )}
         </div>
       </div>
+      
+      {selectedNote && (
+        <div className="px-4 pb-3">
+          <Input
+            value={selectedNote.title}
+            onChange={handleTitleChange}
+            className="text-lg font-semibold border-none bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            placeholder="Note title..."
+          />
+        </div>
+      )}
     </header>
   );
 };
