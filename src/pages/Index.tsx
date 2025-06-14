@@ -29,6 +29,7 @@ const DEFAULT_CONTENT = JSON.stringify({
 import NoteHeader from '@/components/NoteHeader';
 import ConnectionsPanel from '@/components/ConnectionsPanel';
 import RightSidebar from '@/components/RightSidebar';
+import { RightSidebarProvider, RightSidebarTrigger } from '@/components/RightSidebarProvider';
 
 const NotesApp = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -254,77 +255,80 @@ const NotesApp = () => {
   return (
     <div className={isDarkMode ? 'dark' : ''}>
       <SidebarProvider>
-        <div className="min-h-screen flex w-full bg-background">
-          <NoteSidebar
-            notes={filteredNotes}
-            selectedNoteId={selectedNoteId}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onNoteSelect={setSelectedNoteId}
-            onNewNote={createNewNote}
-            onNewFolder={createNewFolder}
-            onDeleteNote={deleteNote}
-            onRenameNote={renameNote}
-            onToggleFolder={toggleFolder}
-          />
-          
-          <SidebarInset className="flex flex-col">
-            <NoteHeader 
-              selectedNote={selectedNote} 
-              notes={notes} 
-              onTitleChange={handleTitleChange}
+        <RightSidebarProvider>
+          <div className="min-h-screen flex w-full bg-background">
+            <NoteSidebar
+              notes={filteredNotes}
+              selectedNoteId={selectedNoteId}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onNoteSelect={setSelectedNoteId}
+              onNewNote={createNewNote}
+              onNewFolder={createNewFolder}
+              onDeleteNote={deleteNote}
+              onRenameNote={renameNote}
+              onToggleFolder={toggleFolder}
             />
+            
+            <SidebarInset className="flex flex-col">
+              <NoteHeader 
+                selectedNote={selectedNote} 
+                notes={notes} 
+                onTitleChange={handleTitleChange}
+              />
 
-            <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
-              <div></div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsDarkMode(prev => !prev)}
-                >
-                  {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {selectedNote ? (
-                <>
-                  <div className="flex-1 overflow-hidden p-4">
-                    <RichEditor
-                      content={selectedNote.content}
-                      onChange={handleContentChange}
-                      onConnectionsChange={handleConnectionsChange}
-                      isDarkMode={isDarkMode}
-                    />
-                  </div>
-                  
-                  <ConnectionsPanel
-                    connections={selectedNoteConnections}
-                    isOpen={connectionsPanelOpen}
-                    onToggle={() => setConnectionsPanelOpen(prev => !prev)}
-                  />
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h2 className="text-xl font-semibold mb-2">No note selected</h2>
-                    <p className="text-muted-foreground mb-4">
-                      Select a note from the sidebar or create a new one
-                    </p>
-                    <Button onClick={() => createNewNote()}>
-                      Create New Note
-                    </Button>
-                  </div>
+              <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
+                <div></div>
+                <div className="flex items-center gap-2">
+                  <RightSidebarTrigger />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsDarkMode(prev => !prev)}
+                  >
+                    {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  </Button>
                 </div>
-              )}
-            </div>
-          </SidebarInset>
+              </div>
 
-          <RightSidebar />
-        </div>
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {selectedNote ? (
+                  <>
+                    <div className="flex-1 overflow-hidden p-4">
+                      <RichEditor
+                        content={selectedNote.content}
+                        onChange={handleContentChange}
+                        onConnectionsChange={handleConnectionsChange}
+                        isDarkMode={isDarkMode}
+                      />
+                    </div>
+                    
+                    <ConnectionsPanel
+                      connections={selectedNoteConnections}
+                      isOpen={connectionsPanelOpen}
+                      onToggle={() => setConnectionsPanelOpen(prev => !prev)}
+                    />
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h2 className="text-xl font-semibold mb-2">No note selected</h2>
+                      <p className="text-muted-foreground mb-4">
+                        Select a note from the sidebar or create a new one
+                      </p>
+                      <Button onClick={() => createNewNote()}>
+                        Create New Note
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SidebarInset>
+
+            <RightSidebar />
+          </div>
+        </RightSidebarProvider>
       </SidebarProvider>
     </div>
   );

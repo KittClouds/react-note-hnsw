@@ -1,16 +1,16 @@
 
 import { FileText } from 'lucide-react';
 import {
-  Sidebar,
   SidebarContent,
   SidebarHeader,
   SidebarGroup,
   SidebarGroupContent,
 } from "@/components/ui/sidebar";
+import { RightSidebar as RightSidebarWrapper } from './RightSidebarProvider';
 
 const RightSidebar = () => {
   return (
-    <Sidebar side="right" className="border-l border-border/50 backdrop-blur-sm">
+    <RightSidebarWrapper className="border-l border-border/50 backdrop-blur-sm">
       <SidebarHeader className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-foreground">Properties</h2>
@@ -30,7 +30,7 @@ const RightSidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-    </Sidebar>
+    </RightSidebarWrapper>
   );
 };
 
