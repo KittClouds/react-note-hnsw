@@ -27,6 +27,7 @@ const DEFAULT_CONTENT = JSON.stringify({
   ]
 });
 import NoteHeader from '@/components/NoteHeader';
+import ConnectionsPanel from '@/components/ConnectionsPanel';
 
 const NotesApp = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -35,6 +36,8 @@ const NotesApp = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   const [noteConnections, setNoteConnections] = useState<Map<string, ParsedConnections>>(new Map());
+  
+  const [connectionsPanelOpen, setConnectionsPanelOpen] = useState(false);
 
   // Load notes from localStorage on component mount
   useEffect(() => {
@@ -216,6 +219,7 @@ const NotesApp = () => {
   );
 
   const selectedNote = notes.find(note => note.id === selectedNoteId && note.type === 'note');
+  const selectedNoteConnections = selectedNoteId ? noteConnections.get(selectedNoteId) || null : null;
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -263,7 +267,7 @@ const NotesApp = () => {
             onToggleFolder={toggleFolder}
           />
           
-          <SidebarInset>
+          <SidebarInset className="flex flex-col">
             <NoteHeader 
               selectedNote={selectedNote} 
               notes={notes} 
@@ -280,16 +284,24 @@ const NotesApp = () => {
               </Button>
             </div>
 
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden">
               {selectedNote ? (
-                <div className="h-full p-4">
-                  <RichEditor
-                    content={selectedNote.content}
-                    onChange={handleContentChange}
-                    onConnectionsChange={handleConnectionsChange}
-                    isDarkMode={isDarkMode}
+                <>
+                  <div className="flex-1 overflow-hidden p-4">
+                    <RichEditor
+                      content={selectedNote.content}
+                      onChange={handleContentChange}
+                      onConnectionsChange={handleConnectionsChange}
+                      isDarkMode={isDarkMode}
+                    />
+                  </div>
+                  
+                  <ConnectionsPanel
+                    connections={selectedNoteConnections}
+                    isOpen={connectionsPanelOpen}
+                    onToggle={() => setConnectionsPanelOpen(prev => !prev)}
                   />
-                </div>
+                </>
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
