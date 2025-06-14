@@ -1,33 +1,17 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { 
   SidebarProvider, 
-  Sidebar, 
-  SidebarContent, 
-  SidebarHeader, 
-  SidebarGroup, 
-  SidebarGroupContent, 
-  SidebarMenu, 
-  SidebarMenuItem, 
-  SidebarMenuButton,
   SidebarTrigger,
   SidebarInset,
-  useSidebar
 } from '@/components/ui/sidebar';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Search, Moon, Sun, FileText, Trash2 } from 'lucide-react';
+import { Moon, Sun, FileText } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import RichEditor from '@/components/RichEditor';
+import NoteSidebar from '@/components/NoteSidebar';
 import { ParsedConnections } from '@/utils/parsingUtils';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { Note } from '@/types/note';
 
 const DEFAULT_CONTENT = JSON.stringify({
   type: 'doc',
@@ -60,14 +44,16 @@ const NotesApp = () => {
     if (savedNotes) {
       const parsedNotes = JSON.parse(savedNotes).map((note: any) => ({
         ...note,
+        type: note.type || 'note',
         createdAt: new Date(note.createdAt),
         updatedAt: new Date(note.updatedAt)
       }));
       setNotes(parsedNotes);
       
       // Select the first note if available
-      if (parsedNotes.length > 0) {
-        setSelectedNoteId(parsedNotes[0].id);
+      const firstNote = parsedNotes.find((note: Note) => note.type === 'note');
+      if (firstNote) {
+        setSelectedNoteId(firstNote.id);
       }
     }
     
@@ -92,11 +78,13 @@ const NotesApp = () => {
     }
   }, [isDarkMode]);
 
-  const createNewNote = useCallback(() => {
+  const createNewNote = useCallback((parentId?: string) => {
     const newNote: Note = {
       id: Date.now().toString(),
       title: 'Untitled Note',
       content: DEFAULT_CONTENT,
+      type: 'note',
+      parentId,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -106,6 +94,25 @@ const NotesApp = () => {
     toast({
       title: "New note created",
       description: "Start writing your thoughts!",
+    });
+  }, []);
+
+  const createNewFolder = useCallback((parentId?: string) => {
+    const newFolder: Note = {
+      id: Date.now().toString(),
+      title: 'New Folder',
+      content: '',
+      type: 'folder',
+      parentId,
+      isExpanded: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    setNotes(prev => [newFolder, ...prev]);
+    toast({
+      title: "New folder created",
+      description: "Organize your notes!",
     });
   }, []);
 
@@ -119,11 +126,33 @@ const NotesApp = () => {
 
   const deleteNote = useCallback((id: string) => {
     setNotes(prev => {
-      const filtered = prev.filter(note => note.id !== id);
-      // If we deleted the selected note, select the first remaining note
-      if (selectedNoteId === id) {
-        setSelectedNoteId(filtered.length > 0 ? filtered[0].id : null);
+      const noteToDelete = prev.find(note => note.id === id);
+      if (!noteToDelete) return prev;
+
+      // If deleting a folder, also delete all children
+      const toDelete = new Set([id]);
+      if (noteToDelete.type === 'folder') {
+        const addChildrenToDelete = (parentId: string) => {
+          prev.forEach(note => {
+            if (note.parentId === parentId) {
+              toDelete.add(note.id);
+              if (note.type === 'folder') {
+                addChildrenToDelete(note.id);
+              }
+            }
+          });
+        };
+        addChildrenToDelete(id);
       }
+
+      const filtered = prev.filter(note => !toDelete.has(note.id));
+      
+      // If we deleted the selected note, select the first remaining note
+      if (selectedNoteId === id || toDelete.has(selectedNoteId || '')) {
+        const firstNote = filtered.find(note => note.type === 'note');
+        setSelectedNoteId(firstNote ? firstNote.id : null);
+      }
+      
       return filtered;
     });
     toast({
@@ -131,6 +160,18 @@ const NotesApp = () => {
       description: "The note has been removed.",
     });
   }, [selectedNoteId]);
+
+  const renameNote = useCallback((id: string, newTitle: string) => {
+    updateNote(id, { title: newTitle });
+  }, [updateNote]);
+
+  const toggleFolder = useCallback((id: string) => {
+    setNotes(prev => prev.map(note => 
+      note.id === id && note.type === 'folder'
+        ? { ...note, isExpanded: !note.isExpanded }
+        : note
+    ));
+  }, []);
 
   const handleContentChange = useCallback((content: string) => {
     if (selectedNoteId) {
@@ -174,7 +215,7 @@ const NotesApp = () => {
     note.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedNote = notes.find(note => note.id === selectedNoteId);
+  const selectedNote = notes.find(note => note.id === selectedNoteId && note.type === 'note');
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -185,7 +226,7 @@ const NotesApp = () => {
             e.preventDefault();
             createNewNote();
             break;
-          case 'f':
+          case 'k':
             e.preventDefault();
             document.getElementById('search-input')?.focus();
             break;
@@ -208,13 +249,14 @@ const NotesApp = () => {
           <NoteSidebar
             notes={filteredNotes}
             selectedNoteId={selectedNoteId}
-            onSelectNote={setSelectedNoteId}
-            onCreateNote={createNewNote}
-            onDeleteNote={deleteNote}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            isDarkMode={isDarkMode}
-            onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
+            onNoteSelect={setSelectedNoteId}
+            onNewNote={createNewNote}
+            onNewFolder={createNewFolder}
+            onDeleteNote={deleteNote}
+            onRenameNote={renameNote}
+            onToggleFolder={toggleFolder}
           />
           
           <SidebarInset>
@@ -256,8 +298,7 @@ const NotesApp = () => {
                     <p className="text-muted-foreground mb-4">
                       Select a note from the sidebar or create a new one
                     </p>
-                    <Button onClick={createNewNote}>
-                      <Plus className="h-4 w-4 mr-2" />
+                    <Button onClick={() => createNewNote()}>
                       Create New Note
                     </Button>
                   </div>
@@ -268,155 +309,6 @@ const NotesApp = () => {
         </div>
       </SidebarProvider>
     </div>
-  );
-};
-
-interface NoteSidebarProps {
-  notes: Note[];
-  selectedNoteId: string | null;
-  onSelectNote: (id: string) => void;
-  onCreateNote: () => void;
-  onDeleteNote: (id: string) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  isDarkMode: boolean;
-  onToggleDarkMode: () => void;
-}
-
-const NoteSidebar = ({
-  notes,
-  selectedNoteId,
-  onSelectNote,
-  onCreateNote,
-  onDeleteNote,
-  searchQuery,
-  onSearchChange,
-  isDarkMode,
-  onToggleDarkMode
-}: NoteSidebarProps) => {
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
-
-  const getPreview = (content: string) => {
-    const tempDiv = document.createElement('div');
-    try {
-      const jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
-      tempDiv.textContent = jsonContent?.content?.[0]?.content?.[0]?.text || '';
-    } catch (e) {
-      tempDiv.innerHTML = content;
-    }
-    const text = tempDiv.textContent || tempDiv.innerText || '';
-    return text.substring(0, 100) + (text.length > 100 ? '...' : '');
-  };
-
-  const formatDate = (date: Date) => {
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 1) return 'Today';
-    if (diffDays === 2) return 'Yesterday';
-    if (diffDays <= 7) return `${diffDays - 1} days ago`;
-    return date.toLocaleDateString();
-  };
-
-  return (
-    <Sidebar collapsible="offcanvas">
-      <SidebarHeader className="p-4">
-        {!isCollapsed && (
-          <>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Notes</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleDarkMode}
-              >
-                {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </Button>
-            </div>
-            <Button onClick={onCreateNote} className="w-full mb-4">
-              <Plus className="h-4 w-4 mr-2" />
-              New Note
-            </Button>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="search-input"
-                placeholder="Search notes..."
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </>
-        )}
-      </SidebarHeader>
-
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <ScrollArea className="h-[calc(100vh-200px)]">
-                {notes.length === 0 ? (
-                  !isCollapsed && (
-                    <div className="p-4 text-center text-muted-foreground">
-                      <FileText className="h-8 w-8 mx-auto mb-2" />
-                      <p className="text-sm">No notes yet</p>
-                    </div>
-                  )
-                ) : (
-                  notes.map((note) => (
-                    <SidebarMenuItem key={note.id}>
-                      <SidebarMenuButton
-                        onClick={() => onSelectNote(note.id)}
-                        className={`
-                          w-full justify-start text-left p-3 h-auto
-                          ${selectedNoteId === note.id ? 'bg-accent text-accent-foreground' : ''}
-                        `}
-                      >
-                        <div className="flex items-start justify-between w-full">
-                          <div className="flex-1 min-w-0">
-                            {isCollapsed ? (
-                              <FileText className="h-4 w-4" />
-                            ) : (
-                              <>
-                                <div className="font-medium text-sm truncate mb-1">
-                                  {note.title}
-                                </div>
-                                <div className="text-xs text-muted-foreground truncate mb-1">
-                                  {getPreview(note.content)}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {formatDate(note.updatedAt)}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                          {!isCollapsed && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteNote(note.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 h-6 w-6 p-0"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))
-                )}
-              </ScrollArea>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
   );
 };
 
