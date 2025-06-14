@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Note } from '@/types/note';
 import { cn } from '@/lib/utils';
-import NoteContextMenu from './NoteContextMenu';
 import InlineRename from './InlineRename';
 
 interface NoteSidebarProps {
@@ -136,93 +135,91 @@ const NoteSidebar = ({
             </div>
           )}
 
-          <NoteContextMenu
-            note={note}
-            onAddNote={onNewNote}
-            onAddFolder={onNewFolder}
-            onRename={(id) => setRenamingId(id)}
-            onDelete={onDeleteNote}
-          >
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => {
-                  if (note.type === 'folder') {
-                    onToggleFolder(note.id);
-                  } else {
-                    onNoteSelect(note.id);
-                  }
-                }}
-                className={cn(
-                  "flex items-center p-2 h-8 hover:bg-accent/50 group transition-all duration-200 relative",
-                  selectedNoteId === note.id && note.type === 'note' && "bg-accent/30 shadow-sm",
-                  note.type === 'folder' && "hover:bg-accent/30"
-                )}
-                style={{ paddingLeft: `${(level * 16) + 8}px` }}
-              >
-                <div className="flex items-center flex-1 min-w-0">
-                  {note.type === 'folder' ? (
-                    <div className="flex items-center mr-2">
-                      <ChevronRight
-                        className={cn(
-                          "h-3 w-3 text-muted-foreground transition-transform duration-200",
-                          note.isExpanded && "transform rotate-90"
-                        )}
-                      />
-                      {note.isExpanded ? (
-                        <FolderOpen className="h-4 w-4 ml-1 text-blue-500" />
-                      ) : (
-                        <Folder className="h-4 w-4 ml-1 text-blue-500" />
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => {
+                if (note.type === 'folder') {
+                  onToggleFolder(note.id);
+                } else {
+                  onNoteSelect(note.id);
+                }
+              }}
+              className={cn(
+                "flex items-center p-2 h-8 hover:bg-accent/50 group transition-all duration-200 relative",
+                selectedNoteId === note.id && note.type === 'note' && "bg-accent/30 shadow-sm",
+                note.type === 'folder' && "hover:bg-accent/30"
+              )}
+              style={{ paddingLeft: `${(level * 16) + 8}px` }}
+            >
+              <div className="flex items-center flex-1 min-w-0">
+                {note.type === 'folder' ? (
+                  <div className="flex items-center mr-2">
+                    <ChevronRight
+                      className={cn(
+                        "h-3 w-3 text-muted-foreground transition-transform duration-200",
+                        note.isExpanded && "transform rotate-90"
                       )}
-                    </div>
-                  ) : (
-                    <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                  )}
-                  
-                  <div className="flex-1 min-w-0">
-                    {renamingId === note.id ? (
-                      <InlineRename
-                        initialValue={note.title}
-                        onSave={(newTitle) => handleRename(note.id, newTitle)}
-                        onCancel={() => setRenamingId(null)}
-                        className="w-full"
-                      />
+                    />
+                    {note.isExpanded ? (
+                      <FolderOpen className="h-4 w-4 ml-1 text-blue-500" />
                     ) : (
-                      <h3 className="font-medium text-sm text-foreground truncate">
-                        {note.title}
-                      </h3>
+                      <Folder className="h-4 w-4 ml-1 text-blue-500" />
                     )}
                   </div>
-
-                  {note.type === 'note' && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto ml-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreHorizontal size={14} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm">
-                        <DropdownMenuItem onClick={() => setRenamingId(note.id)}>
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => onDeleteNote(note.id)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                ) : (
+                  <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                )}
+                
+                <div className="flex-1 min-w-0">
+                  {renamingId === note.id ? (
+                    <InlineRename
+                      initialValue={note.title}
+                      onSave={(newTitle) => handleRename(note.id, newTitle)}
+                      onCancel={() => setRenamingId(null)}
+                      className="w-full"
+                    />
+                  ) : (
+                    <h3 className="font-medium text-sm text-foreground truncate">
+                      {note.title}
+                    </h3>
                   )}
                 </div>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </NoteContextMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto ml-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal size={14} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm">
+                    <DropdownMenuItem onClick={() => onNewNote(note.id)}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      New Note
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onNewFolder(note.id)}>
+                      <Folder className="mr-2 h-4 w-4" />
+                      New Folder
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setRenamingId(note.id)}>
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => onDeleteNote(note.id)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           
           {note.type === 'folder' && note.isExpanded && note.children && note.children.length > 0 && (
             <div className="animate-fade-in">
@@ -300,21 +297,13 @@ const NoteSidebar = ({
       <SidebarContent className="overflow-auto">
         {treeNotes.length === 0 ? (
           <div className="p-8 text-center">
-            <NoteContextMenu
-              onAddNote={onNewNote}
-              onAddFolder={onNewFolder}
-              onRename={() => {}}
-              onDelete={() => {}}
-              isRoot
-            >
-              <div className="cursor-pointer hover:bg-accent/20 rounded-lg p-4 transition-colors">
-                <div className="text-muted-foreground">
-                  <FileText size={48} className="mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">No notes yet</p>
-                  <p className="text-sm">Right-click to create your first note or folder!</p>
-                </div>
+            <div className="cursor-pointer hover:bg-accent/20 rounded-lg p-4 transition-colors">
+              <div className="text-muted-foreground">
+                <FileText size={48} className="mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-2">No notes yet</p>
+                <p className="text-sm">Use the "New" button above to create your first note or folder!</p>
               </div>
-            </NoteContextMenu>
+            </div>
           </div>
         ) : (
           <SidebarGroup>
