@@ -279,7 +279,7 @@ const NoteSidebar = ({
   };
 
   return (
-    <Sidebar className={isCollapsed ? "w-14" : "w-80"} collapsible="offcanvas">
+    <Sidebar collapsible="offcanvas">
       <SidebarHeader className="p-4">
         {!isCollapsed && (
           <>
