@@ -19,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Search, Moon, Sun, FileText, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import RichEditor from '@/components/RichEditor';
+import { ParsedConnections } from '@/utils/parsingUtils';
 
 interface Note {
   id: string;
@@ -28,13 +29,28 @@ interface Note {
   updatedAt: Date;
 }
 
-const DEFAULT_CONTENT = '<h1>Welcome to Your Notes</h1><p>Start writing your thoughts here...</p>';
+const DEFAULT_CONTENT = JSON.stringify({
+  type: 'doc',
+  content: [
+    {
+      type: 'heading',
+      attrs: { level: 1 },
+      content: [{ type: 'text', text: 'Welcome to Your Notes' }]
+    },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Start writing your thoughts here...' }]
+    }
+  ]
+});
 
 const NotesApp = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  const [noteConnections, setNoteConnections] = useState<Map<string, ParsedConnections>>(new Map());
 
   // Load notes from localStorage on component mount
   useEffect(() => {
@@ -118,13 +134,26 @@ const NotesApp = () => {
 
   const handleContentChange = useCallback((content: string) => {
     if (selectedNoteId) {
-      // Extract title from content (first heading or first line)
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = content;
-      const firstHeading = tempDiv.querySelector('h1, h2, h3, h4, h5, h6');
-      const title = firstHeading 
-        ? firstHeading.textContent?.trim() || 'Untitled Note'
-        : tempDiv.textContent?.trim().split('\n')[0] || 'Untitled Note';
+      // Parse content to extract title
+      let title = 'Untitled Note';
+      try {
+        const jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
+        
+        // Extract title from first heading or first text content
+        if (jsonContent.content && Array.isArray(jsonContent.content)) {
+          for (const node of jsonContent.content) {
+            if (node.type === 'heading' && node.content && node.content[0]?.text) {
+              title = node.content[0].text.trim() || 'Untitled Note';
+              break;
+            } else if (node.type === 'paragraph' && node.content && node.content[0]?.text) {
+              title = node.content[0].text.trim().split('\n')[0] || 'Untitled Note';
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to parse content for title extraction:', error);
+      }
       
       updateNote(selectedNoteId, { 
         content, 
@@ -132,6 +161,13 @@ const NotesApp = () => {
       });
     }
   }, [selectedNoteId, updateNote]);
+
+  const handleConnectionsChange = useCallback((connections: ParsedConnections) => {
+    if (selectedNoteId) {
+      setNoteConnections(prev => new Map(prev.set(selectedNoteId, connections)));
+      console.log('Parsed connections for note:', selectedNoteId, connections);
+    }
+  }, [selectedNoteId]);
 
   const filteredNotes = notes.filter(note => 
     note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -208,6 +244,7 @@ const NotesApp = () => {
                   <RichEditor
                     content={selectedNote.content}
                     onChange={handleContentChange}
+                    onConnectionsChange={handleConnectionsChange}
                     isDarkMode={isDarkMode}
                   />
                 </div>
@@ -262,7 +299,12 @@ const NoteSidebar = ({
 
   const getPreview = (content: string) => {
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = content;
+    try {
+      const jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
+      tempDiv.textContent = jsonContent?.content?.[0]?.content?.[0]?.text || '';
+    } catch (e) {
+      tempDiv.innerHTML = content;
+    }
     const text = tempDiv.textContent || tempDiv.innerText || '';
     return text.substring(0, 100) + (text.length > 100 ? '...' : '');
   };

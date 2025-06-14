@@ -1,4 +1,3 @@
-
 import { useCallback, useState, useEffect } from 'react';
 import RichTextEditor, { BaseKit } from 'reactjs-tiptap-editor';
 import { locale } from 'reactjs-tiptap-editor/locale-bundle';
@@ -65,10 +64,15 @@ import 'katex/dist/katex.min.css';
 import 'easydrawer/styles.css';
 import 'react-image-crop/dist/ReactCrop.css';
 
+// Import parsing utilities
+import { parseNoteConnections, ParsedConnections } from '@/utils/parsingUtils';
+import { parseNoteConnectionsFromDocument } from '@/utils/documentParsing';
+
 interface RichEditorProps {
   content: string;
   onChange: (content: string) => void;
   isDarkMode: boolean;
+  onConnectionsChange?: (connections: ParsedConnections) => void;
 }
 
 function convertBase64ToBlob(base64: string) {
@@ -217,25 +221,71 @@ const extensions = [
   Twitter,
 ];
 
-const RichEditor = ({ content, onChange, isDarkMode }: RichEditorProps) => {
-  const [editorContent, setEditorContent] = useState(content);
+const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: RichEditorProps) => {
+  const [editorContent, setEditorContent] = useState(() => {
+    try {
+      return typeof content === 'string' ? JSON.parse(content) : content;
+    } catch {
+      return content;
+    }
+  });
+  
+  const [editorInstance, setEditorInstance] = useState<any>(null);
 
   useEffect(() => {
-    setEditorContent(content);
+    try {
+      const parsedContent = typeof content === 'string' ? JSON.parse(content) : content;
+      setEditorContent(parsedContent);
+    } catch {
+      setEditorContent(content);
+    }
   }, [content]);
 
+  // Parse connections when content changes
+  useEffect(() => {
+    if (onConnectionsChange && editorInstance) {
+      try {
+        // Get the current JSON from the editor
+        const currentJSON = editorInstance.getJSON();
+        const connections = parseNoteConnections(currentJSON);
+        onConnectionsChange(connections);
+      } catch (error) {
+        console.warn('Failed to parse connections from editor content:', error);
+      }
+    }
+  }, [editorContent, onConnectionsChange, editorInstance]);
+
   const onValueChange = useCallback(
-    debounce((value: any) => {
+    debounce((value: any, editor: any) => {
       setEditorContent(value);
-      onChange(value);
+      
+      // Store the editor instance for connection parsing
+      if (!editorInstance) {
+        setEditorInstance(editor);
+      }
+      
+      // Parse connections from the current editor JSON
+      if (onConnectionsChange && editor) {
+        try {
+          const currentJSON = editor.getJSON();
+          const connections = parseNoteConnections(currentJSON);
+          onConnectionsChange(connections);
+        } catch (error) {
+          console.warn('Failed to parse connections:', error);
+        }
+      }
+      
+      // Convert to JSON string for storage
+      const jsonString = typeof value === 'string' ? value : JSON.stringify(value);
+      onChange(jsonString);
     }, 300),
-    [onChange],
+    [onChange, onConnectionsChange, editorInstance],
   );
 
   return (
     <div className="h-full flex flex-col">
       <RichTextEditor
-        output="html"
+        output="json"
         content={editorContent as any}
         onChangeContent={onValueChange}
         extensions={extensions}
