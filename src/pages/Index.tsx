@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -10,7 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import RichEditor from '@/components/RichEditor';
 import NoteSidebar from '@/components/NoteSidebar';
 import { ParsedConnections } from '@/utils/parsingUtils';
-import { Note } from '@/types/note';
+import { Note, Nest } from '@/types/note';
 
 const DEFAULT_CONTENT = JSON.stringify({
   type: 'doc',
@@ -33,7 +34,9 @@ import { RightSidebarProvider, RightSidebarTrigger } from '@/components/RightSid
 
 const NotesApp = () => {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [nests, setNests] = useState<Nest[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [selectedNestId, setSelectedNestId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -41,9 +44,10 @@ const NotesApp = () => {
   
   const [connectionsPanelOpen, setConnectionsPanelOpen] = useState(false);
 
-  // Load notes from localStorage on component mount
+  // Load data from localStorage on component mount
   useEffect(() => {
     const savedNotes = localStorage.getItem('notes');
+    const savedNests = localStorage.getItem('nests');
     const savedDarkMode = localStorage.getItem('darkMode');
     
     if (savedNotes) {
@@ -61,6 +65,15 @@ const NotesApp = () => {
         setSelectedNoteId(firstNote.id);
       }
     }
+
+    if (savedNests) {
+      const parsedNests = JSON.parse(savedNests).map((nest: any) => ({
+        ...nest,
+        createdAt: new Date(nest.createdAt),
+        updatedAt: new Date(nest.updatedAt)
+      }));
+      setNests(parsedNests);
+    }
     
     if (savedDarkMode === 'true') {
       setIsDarkMode(true);
@@ -68,10 +81,14 @@ const NotesApp = () => {
     }
   }, []);
 
-  // Save notes to localStorage whenever notes change
+  // Save data to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('notes', JSON.stringify(notes));
   }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem('nests', JSON.stringify(nests));
+  }, [nests]);
 
   // Save dark mode preference
   useEffect(() => {
@@ -83,13 +100,14 @@ const NotesApp = () => {
     }
   }, [isDarkMode]);
 
-  const createNewNote = useCallback((parentId?: string) => {
+  const createNewNote = useCallback((parentId?: string, nestId?: string) => {
     const newNote: Note = {
       id: Date.now().toString(),
       title: 'Untitled Note',
       content: DEFAULT_CONTENT,
       type: 'note',
       parentId,
+      nestId,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -102,13 +120,14 @@ const NotesApp = () => {
     });
   }, []);
 
-  const createNewFolder = useCallback((parentId?: string) => {
+  const createNewFolder = useCallback((parentId?: string, nestId?: string) => {
     const newFolder: Note = {
       id: Date.now().toString(),
       title: 'New Folder',
       content: '',
       type: 'folder',
       parentId,
+      nestId,
       isExpanded: false,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -118,6 +137,23 @@ const NotesApp = () => {
     toast({
       title: "New folder created",
       description: "Organize your notes!",
+    });
+  }, []);
+
+  const createNewNest = useCallback(() => {
+    const newNest: Nest = {
+      id: Date.now().toString(),
+      name: 'New Nest',
+      description: '',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    setNests(prev => [newNest, ...prev]);
+    setSelectedNestId(newNest.id);
+    toast({
+      title: "New nest created",
+      description: "Organize your domain-specific work!",
     });
   }, []);
 
@@ -166,9 +202,36 @@ const NotesApp = () => {
     });
   }, [selectedNoteId]);
 
+  const deleteNest = useCallback((id: string) => {
+    // Delete all notes in the nest
+    setNotes(prev => prev.filter(note => note.nestId !== id));
+    
+    // Delete the nest
+    setNests(prev => prev.filter(nest => nest.id !== id));
+    
+    // Clear selection if this nest was selected
+    if (selectedNestId === id) {
+      setSelectedNestId(null);
+      setSelectedNoteId(null);
+    }
+    
+    toast({
+      title: "Nest deleted",
+      description: "The nest and all its contents have been removed.",
+    });
+  }, [selectedNestId]);
+
   const renameNote = useCallback((id: string, newTitle: string) => {
     updateNote(id, { title: newTitle });
   }, [updateNote]);
+
+  const renameNest = useCallback((id: string, newName: string) => {
+    setNests(prev => prev.map(nest => 
+      nest.id === id 
+        ? { ...nest, name: newName, updatedAt: new Date() }
+        : nest
+    ));
+  }, []);
 
   const toggleFolder = useCallback((id: string) => {
     setNotes(prev => prev.map(note => 
@@ -259,14 +322,20 @@ const NotesApp = () => {
           <div className="min-h-screen flex w-full bg-background">
             <NoteSidebar
               notes={filteredNotes}
+              nests={nests}
               selectedNoteId={selectedNoteId}
+              selectedNestId={selectedNestId}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onNoteSelect={setSelectedNoteId}
+              onNestSelect={setSelectedNestId}
               onNewNote={createNewNote}
               onNewFolder={createNewFolder}
+              onNewNest={createNewNest}
               onDeleteNote={deleteNote}
+              onDeleteNest={deleteNest}
               onRenameNote={renameNote}
+              onRenameNest={renameNest}
               onToggleFolder={toggleFolder}
             />
             

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Search, Plus, FileText, Folder, FolderOpen, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { Search, Plus, FileText, Folder, FolderOpen, ChevronRight, MoreHorizontal, Database } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -11,6 +11,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
 import {
   HoverCard,
   HoverCardContent,
@@ -25,37 +31,55 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Note } from '@/types/note';
+import { Note, Nest } from '@/types/note';
 import { cn } from '@/lib/utils';
 import InlineRename from './InlineRename';
+import NestView from './NestView';
 
 interface NoteSidebarProps {
   notes: Note[];
+  nests: Nest[];
   selectedNoteId: string | null;
+  selectedNestId: string | null;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onNoteSelect: (id: string) => void;
-  onNewNote: (parentId?: string) => void;
-  onNewFolder: (parentId?: string) => void;
+  onNestSelect: (id: string) => void;
+  onNewNote: (parentId?: string, nestId?: string) => void;
+  onNewFolder: (parentId?: string, nestId?: string) => void;
+  onNewNest: () => void;
   onDeleteNote: (id: string) => void;
+  onDeleteNest: (id: string) => void;
   onRenameNote: (id: string, newTitle: string) => void;
+  onRenameNest: (id: string, newName: string) => void;
   onToggleFolder: (id: string) => void;
 }
 
 const NoteSidebar = ({
   notes,
+  nests,
   selectedNoteId,
+  selectedNestId,
   searchQuery,
   onSearchChange,
   onNoteSelect,
+  onNestSelect,
   onNewNote,
   onNewFolder,
+  onNewNest,
   onDeleteNote,
+  onDeleteNest,
   onRenameNote,
+  onRenameNest,
   onToggleFolder,
 }: NoteSidebarProps) => {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('folders');
+
+  // Filter notes to only show those not in any nest for the folders tab
+  const folderNotes = notes.filter(note => !note.nestId);
+  const nestNotes = notes.filter(note => note.nestId);
 
   const truncateText = (text: string, length: number = 60) => {
     const plainText = text.replace(/<[^>]*>/g, '');
@@ -107,10 +131,8 @@ const NoteSidebar = ({
           onMouseEnter={() => setHoveredId(note.id)}
           onMouseLeave={() => setHoveredId(null)}
         >
-          {/* Tree lines */}
           {level > 0 && (
             <div className="absolute left-0 top-0 bottom-0 pointer-events-none">
-              {/* Vertical lines for parent levels */}
               {isLast.map((isLastAtLevel, levelIndex) => (
                 <div
                   key={levelIndex}
@@ -123,13 +145,11 @@ const NoteSidebar = ({
                 />
               ))}
               
-              {/* Horizontal line for current item */}
               <div
                 className="absolute top-3 w-2 h-px bg-border/40"
                 style={{ left: `${(level - 1) * 16 + 8}px` }}
               />
               
-              {/* Vertical line for current level (stops at last item) */}
               <div
                 className={cn(
                   "absolute w-px bg-border/40",
@@ -237,7 +257,6 @@ const NoteSidebar = ({
         </div>
       );
 
-      // Wrap notes (not folders) with hover card for extra details
       if (note.type === 'note') {
         return (
           <HoverCard key={note.id}>
@@ -263,65 +282,110 @@ const NoteSidebar = ({
     });
   };
 
-  const treeNotes = buildTree(notes);
+  const filteredFolderNotes = folderNotes.filter(note => 
+    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    note.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const treeNotes = buildTree(filteredFolderNotes);
 
   return (
     <Sidebar className="border-r border-border/50 backdrop-blur-sm">
       <SidebarHeader className="p-4 border-b border-border/50">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-foreground">Notes</h2>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
-                <Plus size={16} className="mr-2" />
-                New
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm">
-              <DropdownMenuItem onClick={() => onNewNote()}>
-                <FileText className="mr-2 h-4 w-4" />
-                New Note
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onNewFolder()}>
-                <Folder className="mr-2 h-4 w-4" />
-                New Folder
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="folders" className="text-xs">Folders</TabsTrigger>
+            <TabsTrigger value="nests" className="text-xs">Nests</TabsTrigger>
+          </TabsList>
 
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id="search-input"
-            placeholder="Search notes... (Ctrl+K)"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 bg-background/50 border-input/50 focus:bg-background focus:border-primary/50 transition-all"
-          />
-        </div>
+          <div className="flex items-center justify-between mb-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Plus size={16} className="mr-2" />
+                  New
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm">
+                {activeTab === 'folders' ? (
+                  <>
+                    <DropdownMenuItem onClick={() => onNewNote()}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      New Note
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onNewFolder()}>
+                      <Folder className="mr-2 h-4 w-4" />
+                      New Folder
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem onClick={onNewNest}>
+                    <Database className="mr-2 h-4 w-4" />
+                    New Nest
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {activeTab === 'folders' && (
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="search-input"
+                placeholder="Search notes... (Ctrl+K)"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-9 bg-background/50 border-input/50 focus:bg-background focus:border-primary/50 transition-all"
+              />
+            </div>
+          )}
+        </Tabs>
       </SidebarHeader>
 
       <SidebarContent className="overflow-auto">
-        {treeNotes.length === 0 ? (
-          <div className="p-8 text-center">
-            <div className="cursor-pointer hover:bg-accent/20 rounded-lg p-4 transition-colors">
-              <div className="text-muted-foreground">
-                <FileText size={48} className="mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium mb-2">No notes yet</p>
-                <p className="text-sm">Use the "New" button above to create your first note or folder!</p>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsContent value="folders" className="mt-0">
+            {treeNotes.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="cursor-pointer hover:bg-accent/20 rounded-lg p-4 transition-colors">
+                  <div className="text-muted-foreground">
+                    <FileText size={48} className="mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">No notes yet</p>
+                    <p className="text-sm">Use the "New" button above to create your first note or folder!</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        ) : (
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu className="space-y-1 p-2">
-                {renderNoteTree(treeNotes)}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+            ) : (
+              <SidebarGroup>
+                <SidebarGroupContent>
+                  <SidebarMenu className="space-y-1 p-2">
+                    {renderNoteTree(treeNotes)}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="nests" className="mt-0">
+            <NestView
+              nests={nests}
+              notes={nestNotes}
+              selectedNestId={selectedNestId}
+              selectedNoteId={selectedNoteId}
+              onNestSelect={onNestSelect}
+              onNoteSelect={onNoteSelect}
+              onNewNest={onNewNest}
+              onNewNote={(nestId, parentId) => onNewNote(parentId, nestId)}
+              onNewFolder={(nestId, parentId) => onNewFolder(parentId, nestId)}
+              onDeleteNest={onDeleteNest}
+              onRenameNest={onRenameNest}
+              onDeleteNote={onDeleteNote}
+              onRenameNote={onRenameNote}
+              onToggleFolder={onToggleFolder}
+            />
+          </TabsContent>
+        </Tabs>
       </SidebarContent>
     </Sidebar>
   );
