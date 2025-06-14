@@ -148,7 +148,7 @@ const extensions = [
     },
   }),
   ImageGif.configure({
-    GIPHY_API_KEY: process.env.REACT_APP_GIPHY_API_KEY as string,
+    GIPHY_API_KEY: import.meta.env.VITE_GIPHY_API_KEY || '',
   }),
   Blockquote,
   SlashCommand,
