@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useActiveNoteConnections, useActiveNote, useEntityAttributes, useBlueprintsArray } from '@/hooks/useLiveStore';
+import { useActiveNoteConnections, useActiveNote } from '@/hooks/useLiveStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,13 +19,11 @@ import { toast } from 'sonner';
 import { SimpleLayout } from './layouts/SimpleLayout';
 import { CharacterSheetLayout } from './layouts/CharacterSheetLayout';
 import { FactionOverviewLayout } from './layouts/FactionOverviewLayout';
-import { TypedAttribute, AttributeType, AttributeValue } from '@/types/attributes';
+import { TypedAttribute, AttributeType, AttributeValue, ENTITY_SCHEMAS } from '@/types/attributes';
 
 export function EntityAttributePanel() {
   const { entities } = useActiveNoteConnections();
   const activeNote = useActiveNote();
-  const entityAttributes = useEntityAttributes();
-  const blueprints = useBlueprintsArray();
   const [selectedEntity, setSelectedEntity] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('simple');
 
@@ -67,83 +65,51 @@ export function EntityAttributePanel() {
     }
   }, [entities, selectedEntity]);
 
-  // Get attributes for selected entity
-  const selectedEntityAttributes = useMemo(() => {
-    if (!selectedEntity) return null;
-    return entityAttributes.find(
-      attr => attr.entityKind === selectedEntity.kind && attr.entityLabel === selectedEntity.label
-    );
-  }, [selectedEntity, entityAttributes]);
+  // Convert entity attributes to typed attributes (reusing logic from EntityItem.tsx)
+  const typedAttributes = useMemo((): TypedAttribute[] => {
+    if (!selectedEntity?.attributes) return [];
 
-  // Enhanced type detection function
-  const detectAttributeType = (value: any): AttributeType => {
-    if (value === null || value === undefined) return 'Text';
-    
-    // Check for complex object types first
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      // Progress Bar detection
-      if ('current' in value && 'maximum' in value && typeof value.current === 'number' && typeof value.maximum === 'number') {
-        return 'ProgressBar';
-      }
-      
-      // Stat Block detection
-      if ('strength' in value && 'dexterity' in value && 'constitution' in value && 
-          'intelligence' in value && 'wisdom' in value && 'charisma' in value) {
-        return 'StatBlock';
-      }
-      
-      // Relationship detection
-      if ('entityId' in value && 'relationshipType' in value) {
-        return 'Relationship';
-      }
-      
-      // Entity Link detection
-      if ('entityId' in value && 'kind' in value && 'label' in value) {
-        return 'EntityLink';
-      }
+    // If already typed attributes
+    if (Array.isArray(selectedEntity.attributes)) {
+      return selectedEntity.attributes;
     }
-    
-    // Array detection
-    if (Array.isArray(value)) {
-      return 'List';
-    }
-    
-    // Date detection (ISO string format)
-    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
-      return 'Date';
-    }
-    
-    // URL detection
-    if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
-      return 'URL';
-    }
-    
-    // Basic type detection
-    if (typeof value === 'number') return 'Number';
-    if (typeof value === 'boolean') return 'Boolean';
-    
-    return 'Text';
-  };
 
-  // Convert attributes object to typed attributes array with proper type detection
-  const typedAttributes = useMemo(() => {
-    if (!selectedEntityAttributes?.attributes) return [];
-    
-    // Handle both new format (array) and old format (object)
-    if (Array.isArray(selectedEntityAttributes.attributes)) {
-      return selectedEntityAttributes.attributes;
+    // Convert legacy object format to typed attributes
+    const entitySchema = ENTITY_SCHEMAS.find(schema => schema.kind === selectedEntity.kind);
+    const attributes: TypedAttribute[] = [];
+
+    Object.entries(selectedEntity.attributes).forEach(([key, value]) => {
+      const schemaAttr = entitySchema?.attributes.find(attr => attr.name === key);
+      
+      attributes.push({
+        id: `legacy-${key}-${Date.now()}`,
+        name: key,
+        type: schemaAttr?.type || 'Text',
+        value: value as any,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    });
+
+    // Add missing schema attributes with default values
+    if (entitySchema) {
+      entitySchema.attributes.forEach(schemaAttr => {
+        if (!attributes.find(attr => attr.name === schemaAttr.name)) {
+          attributes.push({
+            id: `schema-${schemaAttr.name}-${Date.now()}`,
+            name: schemaAttr.name,
+            type: schemaAttr.type,
+            value: schemaAttr.defaultValue || '',
+            unit: schemaAttr.unit,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      });
     }
-    
-    // Convert old format to new format with enhanced type detection
-    return Object.entries(selectedEntityAttributes.attributes).map(([key, value]) => ({
-      id: `${selectedEntity.kind}-${selectedEntity.label}-${key}`,
-      name: key,
-      type: detectAttributeType(value),
-      value: value as AttributeValue,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }));
-  }, [selectedEntityAttributes, selectedEntity]);
+
+    return attributes;
+  }, [selectedEntity]);
 
   const renderEntityContent = () => {
     if (!selectedEntity) {
