@@ -1,4 +1,3 @@
-
 import { useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { v4 as uuidv4 } from 'uuid';
@@ -325,6 +324,8 @@ const NotesApp = observer(() => {
                   <>
                     <div className="flex-1 overflow-hidden p-4">
                       <RichEditor
+                        key={selectedNote.id} // Force re-initialization when switching notes
+                        noteId={selectedNote.id}
                         content={selectedNote.content}
                         onChange={handleContentChange}
                         onConnectionsChange={handleConnectionsChange}

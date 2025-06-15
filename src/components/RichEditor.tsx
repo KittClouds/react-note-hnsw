@@ -1,4 +1,5 @@
-import { useCallback, useState, useEffect } from 'react';
+
+import { useCallback, useState, useEffect, useRef } from 'react';
 import RichTextEditor, { BaseKit } from 'reactjs-tiptap-editor';
 import { locale } from 'reactjs-tiptap-editor/locale-bundle';
 import {
@@ -81,6 +82,7 @@ interface RichEditorProps {
   onChange: (content: string) => void;
   isDarkMode: boolean;
   onConnectionsChange?: (connections: ParsedConnections) => void;
+  noteId?: string; // Add noteId prop for key-based rendering
 }
 
 function convertBase64ToBlob(base64: string) {
@@ -238,7 +240,7 @@ const extensions = [
   Twitter,
 ];
 
-const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: RichEditorProps) => {
+const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange, noteId }: RichEditorProps) => {
   const [editorContent, setEditorContent] = useState(() => {
     try {
       return typeof content === 'string' ? JSON.parse(content) : content;
@@ -248,15 +250,35 @@ const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: Rich
   });
   
   const [editorInstance, setEditorInstance] = useState<any>(null);
+  const previousContentRef = useRef<string>('');
 
+  // Force editor content update when content prop changes (note switching)
   useEffect(() => {
-    try {
-      const parsedContent = typeof content === 'string' ? JSON.parse(content) : content;
-      setEditorContent(parsedContent);
-    } catch {
-      setEditorContent(content);
+    if (!editorInstance) return;
+    
+    const newContent = typeof content === 'string' ? content : JSON.stringify(content);
+    
+    // Only update if content actually changed to avoid infinite loops
+    if (newContent !== previousContentRef.current) {
+      try {
+        const parsedContent = typeof content === 'string' ? JSON.parse(content) : content;
+        
+        // Use editor's setContent method to properly update TipTap state
+        editorInstance.commands.setContent(parsedContent, false, {
+          preserveWhitespace: 'full'
+        });
+        
+        setEditorContent(parsedContent);
+        previousContentRef.current = newContent;
+      } catch (error) {
+        console.warn('Failed to parse content when switching notes:', error);
+        // Fallback to setting raw content
+        editorInstance.commands.setContent(content, false);
+        setEditorContent(content);
+        previousContentRef.current = newContent;
+      }
     }
-  }, [content]);
+  }, [content, editorInstance]);
 
   // Subscribe to connections updates from the extension
   useEffect(() => {
@@ -280,16 +302,22 @@ const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: Rich
   }, [editorInstance, onConnectionsChange]);
 
   const onValueChange = useCallback((value: any) => {
-    setEditorContent(value);
-    
-    // Convert to JSON string for storage
     const jsonString = typeof value === 'string' ? value : JSON.stringify(value);
-    onChange(jsonString);
+    
+    // Prevent update loops by checking if content actually changed
+    if (jsonString !== previousContentRef.current) {
+      setEditorContent(value);
+      previousContentRef.current = jsonString;
+      onChange(jsonString);
+    }
   }, [onChange]);
 
   const onEditorCreate = useCallback((editor: any) => {
     setEditorInstance(editor);
-  }, []);
+    // Initialize previous content ref
+    const initialContent = typeof content === 'string' ? content : JSON.stringify(content);
+    previousContentRef.current = initialContent;
+  }, [content]);
 
   return (
     <div className="h-full flex flex-col">
@@ -299,7 +327,7 @@ const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: Rich
         onChangeContent={onValueChange}
         ref={(editorRef: any) => {
           if (editorRef?.editor && !editorInstance) {
-            setEditorInstance(editorRef.editor);
+            onEditorCreate(editorRef.editor);
           }
         }}
         extensions={extensions}
