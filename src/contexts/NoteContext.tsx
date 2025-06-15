@@ -1,12 +1,14 @@
 
 import React, { createContext, useContext } from 'react';
-import { Note } from '@/types/note';
+import { observer } from 'mobx-react-lite';
+import { useNotesStore, useUIStore } from '@/stores/StoreProvider';
+import { INoteModel } from '@/stores/models/Note';
 
 interface NoteContextType {
-  selectedNote: Note | null;
-  setSelectedNote: (note: Note | null) => void;
-  notes: Note[];
-  setNotes: (notes: Note[]) => void;
+  selectedNote: INoteModel | null;
+  setSelectedNote: (note: INoteModel | null) => void;
+  notes: INoteModel[];
+  setNotes: (notes: INoteModel[]) => void;
 }
 
 const NoteContext = createContext<NoteContextType | undefined>(undefined);
@@ -21,24 +23,26 @@ export function useNoteContext() {
 
 interface NoteProviderProps {
   children: React.ReactNode;
-  selectedNote: Note | null;
-  setSelectedNote: (note: Note | null) => void;
-  notes: Note[];
-  setNotes: (notes: Note[]) => void;
 }
 
-export function NoteProvider({ 
-  children, 
-  selectedNote, 
-  setSelectedNote, 
-  notes, 
-  setNotes 
-}: NoteProviderProps) {
+export const NoteProvider = observer(({ children }: NoteProviderProps) => {
+  const notesStore = useNotesStore();
+  const uiStore = useUIStore();
+
+  const selectedNote = uiStore.selectedNoteId 
+    ? notesStore.notes.get(uiStore.selectedNoteId) || null 
+    : null;
+
   const contextValue = {
     selectedNote,
-    setSelectedNote,
-    notes,
-    setNotes,
+    setSelectedNote: (note: INoteModel | null) => {
+      uiStore.setSelectedNote(note?.id || null);
+    },
+    notes: notesStore.allNotes,
+    setNotes: (notes: INoteModel[]) => {
+      // This is kept for compatibility but MST handles this automatically
+      console.warn('setNotes called but MST manages notes automatically');
+    },
   };
 
   return (
@@ -46,4 +50,4 @@ export function NoteProvider({
       {children}
     </NoteContext.Provider>
   );
-}
+});
