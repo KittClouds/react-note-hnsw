@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useEffect, useCallback } from 'react';
+import { observer } from 'mobx-react-lite';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { 
@@ -11,11 +13,15 @@ import { toast } from '@/hooks/use-toast';
 import RichEditor from '@/components/RichEditor';
 import NoteSidebar from '@/components/NoteSidebar';
 import { ParsedConnections } from '@/utils/parsingUtils';
-import { Note, Nest } from '@/types/note';
 import { NoteProvider } from '@/contexts/NoteContext';
 import { useGraph } from '@/hooks/useGraph';
 import { useGraphSync } from '@/hooks/useGraphSync';
 import { GraphSyncControls } from '@/components/GraphSyncControls';
+import NoteHeader from '@/components/NoteHeader';
+import ConnectionsPanel from '@/components/ConnectionsPanel';
+import RightSidebar from '@/components/RightSidebar';
+import { RightSidebarProvider, RightSidebarTrigger } from '@/components/RightSidebarProvider';
+import { useNotesStore, useUIStore } from '@/stores/StoreProvider';
 
 const DEFAULT_CONTENT = JSON.stringify({
   type: 'doc',
@@ -31,79 +37,11 @@ const DEFAULT_CONTENT = JSON.stringify({
     }
   ]
 });
-import NoteHeader from '@/components/NoteHeader';
-import ConnectionsPanel from '@/components/ConnectionsPanel';
-import RightSidebar from '@/components/RightSidebar';
-import { RightSidebarProvider, RightSidebarTrigger } from '@/components/RightSidebarProvider';
 
-const NotesApp = () => {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [nests, setNests] = useState<Nest[]>([]);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const [selectedNestId, setSelectedNestId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+const NotesApp = observer(() => {
+  const notesStore = useNotesStore();
+  const uiStore = useUIStore();
   
-  const [noteConnections, setNoteConnections] = useState<Map<string, ParsedConnections>>(new Map());
-  
-  const [connectionsPanelOpen, setConnectionsPanelOpen] = useState(false);
-
-  // Load data from localStorage on component mount
-  useEffect(() => {
-    const savedNotes = localStorage.getItem('notes');
-    const savedNests = localStorage.getItem('nests');
-    const savedDarkMode = localStorage.getItem('darkMode');
-    
-    if (savedNotes) {
-      const parsedNotes = JSON.parse(savedNotes).map((note: any) => ({
-        ...note,
-        type: note.type || 'note',
-        createdAt: new Date(note.createdAt),
-        updatedAt: new Date(note.updatedAt)
-      }));
-      setNotes(parsedNotes);
-      
-      // Select the first note if available
-      const firstNote = parsedNotes.find((note: Note) => note.type === 'note');
-      if (firstNote) {
-        setSelectedNoteId(firstNote.id);
-      }
-    }
-
-    if (savedNests) {
-      const parsedNests = JSON.parse(savedNests).map((nest: any) => ({
-        ...nest,
-        createdAt: new Date(nest.createdAt),
-        updatedAt: new Date(nest.updatedAt)
-      }));
-      setNests(parsedNests);
-    }
-    
-    if (savedDarkMode === 'true') {
-      setIsDarkMode(true);
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
-
-  // Save data to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('notes', JSON.stringify(notes));
-  }, [notes]);
-
-  useEffect(() => {
-    localStorage.setItem('nests', JSON.stringify(nests));
-  }, [nests]);
-
-  // Save dark mode preference
-  useEffect(() => {
-    localStorage.setItem('darkMode', isDarkMode.toString());
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
-
   // Add graph initialization with feature flags
   const { graph, isInitialized: graphInitialized } = useGraph();
   
@@ -118,157 +56,108 @@ const NotesApp = () => {
     setConflictResolution,
     updateOptions
   } = useGraphSync(graph, {
-    enableBidirectionalSync: false, // Start with safe defaults
+    enableBidirectionalSync: false,
     conflictResolution: {
-      strategy: 'localStorage', // Prefer localStorage for safety
+      strategy: 'localStorage',
       autoResolve: true
     },
-    syncDirection: 'localStorage-to-graph' // One-way sync initially
+    syncDirection: 'localStorage-to-graph'
   });
 
   const createNewNote = useCallback((parentId?: string, nestId?: string) => {
-    const newNote: Note = {
+    const newNote = notesStore.addNote({
       id: uuidv4(),
       title: 'Untitled Note',
       content: DEFAULT_CONTENT,
       type: 'note',
       parentId,
       nestId,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    });
     
-    setNotes(prev => [newNote, ...prev]);
-    setSelectedNoteId(newNote.id);
+    uiStore.setSelectedNote(newNote.id);
     toast({
       title: "New note created",
       description: "Start writing your thoughts!",
     });
-  }, []);
+  }, [notesStore, uiStore]);
 
   const createNewFolder = useCallback((parentId?: string, nestId?: string) => {
-    const newFolder: Note = {
+    notesStore.addNote({
       id: uuidv4(),
       title: 'New Folder',
       content: '',
       type: 'folder',
       parentId,
       nestId,
-      isExpanded: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    });
     
-    setNotes(prev => [newFolder, ...prev]);
     toast({
       title: "New folder created",
       description: "Organize your notes!",
     });
-  }, []);
+  }, [notesStore]);
 
   const createNewNest = useCallback(() => {
-    const newNest: Nest = {
+    const newNest = notesStore.addNest({
       id: uuidv4(),
       name: 'New Nest',
       description: '',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    });
     
-    setNests(prev => [newNest, ...prev]);
-    setSelectedNestId(newNest.id);
+    uiStore.setSelectedNest(newNest.id);
     toast({
       title: "New nest created",
       description: "Organize your domain-specific work!",
     });
-  }, []);
-
-  const updateNote = useCallback((id: string, updates: Partial<Note>) => {
-    setNotes(prev => prev.map(note => 
-      note.id === id 
-        ? { ...note, ...updates, updatedAt: new Date() }
-        : note
-    ));
-  }, []);
+  }, [notesStore, uiStore]);
 
   const deleteNote = useCallback((id: string) => {
-    setNotes(prev => {
-      const noteToDelete = prev.find(note => note.id === id);
-      if (!noteToDelete) return prev;
-
-      // If deleting a folder, also delete all children
-      const toDelete = new Set([id]);
-      if (noteToDelete.type === 'folder') {
-        const addChildrenToDelete = (parentId: string) => {
-          prev.forEach(note => {
-            if (note.parentId === parentId) {
-              toDelete.add(note.id);
-              if (note.type === 'folder') {
-                addChildrenToDelete(note.id);
-              }
-            }
-          });
-        };
-        addChildrenToDelete(id);
-      }
-
-      const filtered = prev.filter(note => !toDelete.has(note.id));
-      
-      // If we deleted the selected note, select the first remaining note
-      if (selectedNoteId === id || toDelete.has(selectedNoteId || '')) {
-        const firstNote = filtered.find(note => note.type === 'note');
-        setSelectedNoteId(firstNote ? firstNote.id : null);
-      }
-      
-      return filtered;
-    });
+    notesStore.removeNote(id);
+    
+    // If we deleted the selected note, select the first remaining note
+    if (uiStore.selectedNoteId === id) {
+      const firstNote = notesStore.allNotes.find(note => note.type === 'note');
+      uiStore.setSelectedNote(firstNote ? firstNote.id : null);
+    }
+    
     toast({
       title: "Note deleted",
       description: "The note has been removed.",
     });
-  }, [selectedNoteId]);
+  }, [notesStore, uiStore]);
 
   const deleteNest = useCallback((id: string) => {
-    // Delete all notes in the nest
-    setNotes(prev => prev.filter(note => note.nestId !== id));
-    
-    // Delete the nest
-    setNests(prev => prev.filter(nest => nest.id !== id));
+    notesStore.removeNest(id);
     
     // Clear selection if this nest was selected
-    if (selectedNestId === id) {
-      setSelectedNestId(null);
-      setSelectedNoteId(null);
+    if (uiStore.selectedNestId === id) {
+      uiStore.setSelectedNest(null);
+      uiStore.setSelectedNote(null);
     }
     
     toast({
       title: "Nest deleted",
       description: "The nest and all its contents have been removed.",
     });
-  }, [selectedNestId]);
+  }, [notesStore, uiStore]);
 
   const renameNote = useCallback((id: string, newTitle: string) => {
-    updateNote(id, { title: newTitle });
-  }, [updateNote]);
+    notesStore.updateNote(id, { title: newTitle });
+  }, [notesStore]);
 
   const renameNest = useCallback((id: string, newName: string) => {
-    setNests(prev => prev.map(nest => 
-      nest.id === id 
-        ? { ...nest, name: newName, updatedAt: new Date() }
-        : nest
-    ));
-  }, []);
+    notesStore.updateNest(id, { name: newName });
+  }, [notesStore]);
 
   const toggleFolder = useCallback((id: string) => {
-    setNotes(prev => prev.map(note => 
-      note.id === id && note.type === 'folder'
-        ? { ...note, isExpanded: !note.isExpanded }
-        : note
-    ));
-  }, []);
+    const note = notesStore.notes.get(id);
+    if (note && note.type === 'folder') {
+      note.toggleExpanded();
+    }
+  }, [notesStore]);
 
   const handleContentChange = useCallback((content: string) => {
-    if (selectedNoteId) {
+    if (uiStore.selectedNoteId) {
       let title = 'Untitled Note';
       try {
         const jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
@@ -288,32 +177,25 @@ const NotesApp = () => {
         console.warn('Failed to parse content for title extraction:', error);
       }
       
-      updateNote(selectedNoteId, { 
+      notesStore.updateNote(uiStore.selectedNoteId, { 
         content, 
-        title: title.substring(0, 100) // Limit title length
+        title: title.substring(0, 100)
       });
     }
-  }, [selectedNoteId, updateNote]);
+  }, [notesStore, uiStore]);
 
   const handleConnectionsChange = useCallback((connections: ParsedConnections) => {
-    if (selectedNoteId) {
-      setNoteConnections(prev => new Map(prev.set(selectedNoteId, connections)));
-      console.log('Parsed connections for note:', selectedNoteId, connections);
+    if (uiStore.selectedNoteId) {
+      console.log('Parsed connections for note:', uiStore.selectedNoteId, connections);
     }
-  }, [selectedNoteId]);
+  }, [uiStore.selectedNoteId]);
 
-  const filteredNotes = notes.filter(note => 
-    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredNotes = notesStore.searchNotes(uiStore.searchQuery);
+  const selectedNote = uiStore.selectedNoteId 
+    ? notesStore.notes.get(uiStore.selectedNoteId) 
+    : null;
 
-  const selectedNote = notes.find(note => note.id === selectedNoteId && note.type === 'note');
-  const selectedNoteConnections = selectedNoteId ? noteConnections.get(selectedNoteId) || null : null;
-
-  // Add feature flag state
-  const [showGraphControls, setShowGraphControls] = useState(false);
-
-  // Add keyboard shortcut for graph controls (Ctrl/Cmd + G)
+  // Add keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
@@ -328,11 +210,11 @@ const NotesApp = () => {
             break;
           case 'd':
             e.preventDefault();
-            setIsDarkMode(prev => !prev);
+            uiStore.toggleDarkMode();
             break;
           case 'g':
             e.preventDefault();
-            setShowGraphControls(prev => !prev);
+            uiStore.toggleGraphControls();
             break;
         }
       }
@@ -340,27 +222,25 @@ const NotesApp = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [createNewNote]);
+  }, [createNewNote, uiStore]);
 
   const handleTitleChange = useCallback((noteId: string, newTitle: string) => {
-    updateNote(noteId, { title: newTitle });
-  }, [updateNote]);
+    notesStore.updateNote(noteId, { title: newTitle });
+  }, [notesStore]);
 
   const handleEntityUpdate = useCallback((entityId: string, updates: any) => {
     console.log('Entity updated:', entityId, updates);
-    // TODO: Implement entity persistence logic here
     toast({
       title: "Entity updated",
       description: `Entity ${entityId} has been modified.`,
     });
   }, []);
 
-  // Enhanced sync status logging with feature flag info
+  // Enhanced sync status logging
   useEffect(() => {
     if (syncService && graphInitialized) {
       console.log('Graph and sync service both ready');
       
-      // Optional: Log sync status periodically for debugging
       const interval = setInterval(() => {
         const status = getSyncStatus();
         const validation = validateSync();
@@ -368,31 +248,26 @@ const NotesApp = () => {
         if (!validation?.isValid) {
           console.warn('Sync validation issues:', validation?.mismatches);
         }
-      }, 15000); // Log every 15 seconds
+      }, 15000);
       
       return () => clearInterval(interval);
     }
   }, [syncService, graphInitialized, getSyncStatus, validateSync]);
 
   return (
-    <NoteProvider
-      selectedNote={selectedNote || null}
-      setSelectedNote={(note) => setSelectedNoteId(note?.id || null)}
-      notes={notes}
-      setNotes={setNotes}
-    >
+    <NoteProvider>
       <SidebarProvider>
         <RightSidebarProvider>
           <div className="min-h-screen flex w-full bg-background">
             <NoteSidebar
               notes={filteredNotes}
-              nests={nests}
-              selectedNoteId={selectedNoteId}
-              selectedNestId={selectedNestId}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onNoteSelect={setSelectedNoteId}
-              onNestSelect={setSelectedNestId}
+              nests={notesStore.allNests}
+              selectedNoteId={uiStore.selectedNoteId}
+              selectedNestId={uiStore.selectedNestId}
+              searchQuery={uiStore.searchQuery}
+              onSearchChange={uiStore.setSearchQuery}
+              onNoteSelect={uiStore.setSelectedNote}
+              onNestSelect={uiStore.setSelectedNest}
               onNewNote={createNewNote}
               onNewFolder={createNewFolder}
               onNewNest={createNewNest}
@@ -406,20 +281,20 @@ const NotesApp = () => {
             <SidebarInset className="flex flex-col">
               <NoteHeader 
                 selectedNote={selectedNote} 
-                notes={notes} 
+                notes={notesStore.allNotes} 
                 onTitleChange={handleTitleChange}
-                isDarkMode={isDarkMode}
-                onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
+                isDarkMode={uiStore.isDarkMode}
+                onToggleDarkMode={uiStore.toggleDarkMode}
                 onEntityUpdate={handleEntityUpdate}
               />
 
               <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
                 <div className="flex items-center gap-2">
-                  {showGraphControls && (
+                  {uiStore.showGraphControls && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setShowGraphControls(false)}
+                      onClick={uiStore.toggleGraphControls}
                     >
                       Hide Graph Controls
                     </Button>
@@ -431,7 +306,7 @@ const NotesApp = () => {
               </div>
 
               {/* Graph Controls Panel */}
-              {showGraphControls && (
+              {uiStore.showGraphControls && (
                 <div className="p-4 border-b bg-muted/30">
                   <GraphSyncControls
                     syncService={syncService}
@@ -446,21 +321,21 @@ const NotesApp = () => {
               )}
 
               <div className="flex-1 flex flex-col overflow-hidden">
-                {selectedNote ? (
+                {selectedNote && selectedNote.type === 'note' ? (
                   <>
                     <div className="flex-1 overflow-hidden p-4">
                       <RichEditor
                         content={selectedNote.content}
                         onChange={handleContentChange}
                         onConnectionsChange={handleConnectionsChange}
-                        isDarkMode={isDarkMode}
+                        isDarkMode={uiStore.isDarkMode}
                       />
                     </div>
                     
                     <ConnectionsPanel
-                      connections={selectedNoteConnections}
-                      isOpen={connectionsPanelOpen}
-                      onToggle={() => setConnectionsPanelOpen(prev => !prev)}
+                      connections={null}
+                      isOpen={uiStore.connectionsPanelOpen}
+                      onToggle={uiStore.toggleConnectionsPanel}
                     />
                   </>
                 ) : (
@@ -491,24 +366,16 @@ const NotesApp = () => {
       </SidebarProvider>
     </NoteProvider>
   );
-};
+});
 
-const App = () => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  
-  useEffect(() => {
-    const savedDarkMode = localStorage.getItem('darkMode');
-    if (savedDarkMode === 'true') {
-      setIsDarkMode(true);
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
+const App = observer(() => {
+  const uiStore = useUIStore();
 
   return (
-    <div className={isDarkMode ? 'dark' : ''}>
+    <div className={uiStore.isDarkMode ? 'dark' : ''}>
       <NotesApp />
     </div>
   );
-};
+});
 
 export default App;
