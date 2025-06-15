@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { EntityAttributes } from './EntityAttributes';
+import { EnhancedEntityAttributes } from './EnhancedEntityAttributes';
+import { TypedAttribute, ENTITY_SCHEMAS } from '@/types/attributes';
 
 interface EntityItemProps {
   entity: any;
@@ -15,7 +16,53 @@ interface EntityItemProps {
 export function EntityItem({ entity, onEntityUpdate }: EntityItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const handleAttributeUpdate = (attributes: Record<string, any>) => {
+  // Convert legacy attributes to typed attributes
+  const typedAttributes = useMemo((): TypedAttribute[] => {
+    if (!entity.attributes) return [];
+
+    // If already typed attributes
+    if (Array.isArray(entity.attributes)) {
+      return entity.attributes;
+    }
+
+    // Convert legacy object format to typed attributes
+    const entitySchema = ENTITY_SCHEMAS.find(schema => schema.kind === entity.kind);
+    const attributes: TypedAttribute[] = [];
+
+    Object.entries(entity.attributes).forEach(([key, value]) => {
+      const schemaAttr = entitySchema?.attributes.find(attr => attr.name === key);
+      
+      attributes.push({
+        id: `legacy-${key}-${Date.now()}`,
+        name: key,
+        type: schemaAttr?.type || 'Text',
+        value: value as any,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    });
+
+    // Add missing schema attributes with default values
+    if (entitySchema) {
+      entitySchema.attributes.forEach(schemaAttr => {
+        if (!attributes.find(attr => attr.name === schemaAttr.name)) {
+          attributes.push({
+            id: `schema-${schemaAttr.name}-${Date.now()}`,
+            name: schemaAttr.name,
+            type: schemaAttr.type,
+            value: schemaAttr.defaultValue || '',
+            unit: schemaAttr.unit,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      });
+    }
+
+    return attributes;
+  }, [entity.attributes, entity.kind]);
+
+  const handleAttributeUpdate = (attributes: TypedAttribute[]) => {
     if (onEntityUpdate) {
       const entityId = `${entity.kind}:${entity.label}`;
       onEntityUpdate(entityId, { ...entity, attributes });
@@ -55,11 +102,13 @@ export function EntityItem({ entity, onEntityUpdate }: EntityItemProps) {
             <div className="space-y-3">
               <div>
                 <h4 className="text-xs font-medium text-muted-foreground mb-2">
-                  Attributes:
+                  Enhanced Attributes:
                 </h4>
-                <EntityAttributes
-                  attributes={entity.attributes || {}}
+                <EnhancedEntityAttributes
+                  attributes={typedAttributes}
                   onAttributesChange={handleAttributeUpdate}
+                  entityKind={entity.kind}
+                  entityLabel={entity.label}
                 />
               </div>
             </div>
