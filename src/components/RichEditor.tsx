@@ -66,7 +66,13 @@ import 'react-image-crop/dist/ReactCrop.css';
 
 // Import parsing utilities
 import { parseNoteConnections, ParsedConnections } from '@/utils/parsingUtils';
-import { parseNoteConnectionsFromDocument } from '@/utils/documentParsing';
+
+// Import new extensions
+import { Tag } from '@/extensions/Tag';
+import { Backlink } from '@/extensions/Backlink';
+import { Entity } from '@/extensions/Entity';
+import { Triple } from '@/extensions/Triple';
+import { NoteSyntax } from '@/extensions/NoteSyntax';
 
 interface RichEditorProps {
   content: string;
@@ -105,6 +111,16 @@ const extensions = [
       limit: 50_000,
     },
   }),
+  
+  // Add custom schema extensions first
+  Tag,
+  Backlink,
+  Entity,
+  Triple,
+  
+  // Add input rules extension
+  NoteSyntax,
+  
   History,
   SearchAndReplace,
   TableOfContents,
