@@ -1,6 +1,6 @@
 
 import { Extension } from '@tiptap/core';
-import { InputRule } from '@tiptap/pm/inputrules';
+import { InputRule } from '@tiptap/core';
 
 // Regex library - updated for TipTap input rules (must match at end of line)
 const TAG_REGEX = /#([a-zA-Z0-9_]+)$/;
