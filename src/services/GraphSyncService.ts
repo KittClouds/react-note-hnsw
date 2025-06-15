@@ -1,5 +1,5 @@
 import { Graph, Node, Edge } from './GraphInterface';
-import { Note, Nest } from '@/types/note';
+import { Note, Nest, NoteSnapshot, NestSnapshot } from '@/types/note';
 import { parseAllNotes, Entity } from '../utils/parsingUtils';
 
 export interface SyncValidationResult {
@@ -262,30 +262,30 @@ export class GraphSyncService {
     );
     const graphNestNodes = graphNodes.filter(node => node.type === 'nest');
 
-    // Convert graph nodes back to Note/Nest format
-    const notes: Note[] = graphNoteNodes.map(node => ({
+    // Convert graph nodes back to snapshot format for localStorage
+    const noteSnapshots: NoteSnapshot[] = graphNoteNodes.map(node => ({
       id: node.id,
       title: node.props?.title || 'Untitled',
       content: node.props?.content || '',
       type: (node.props?.type === 'folder' ? 'folder' : 'note') as 'note' | 'folder',
-      parentId: node.props?.parentId || null,
-      nestId: node.props?.nestId || null,
+      parentId: node.props?.parentId || undefined,
+      nestId: node.props?.nestId || undefined,
       isExpanded: node.props?.isExpanded || false,
-      createdAt: new Date(node.props?.createdAt || Date.now()),
-      updatedAt: new Date(node.props?.updatedAt || Date.now())
+      createdAt: node.props?.createdAt || new Date().toISOString(),
+      updatedAt: node.props?.updatedAt || new Date().toISOString()
     }));
 
-    const nests: Nest[] = graphNestNodes.map(node => ({
+    const nestSnapshots: NestSnapshot[] = graphNestNodes.map(node => ({
       id: node.id,
       name: node.props?.name || 'Untitled Nest',
       description: node.props?.description || '',
-      createdAt: new Date(node.props?.createdAt || Date.now()),
-      updatedAt: new Date(node.props?.updatedAt || Date.now())
+      createdAt: node.props?.createdAt || new Date().toISOString(),
+      updatedAt: node.props?.updatedAt || new Date().toISOString()
     }));
 
-    // Update localStorage
-    localStorage.setItem('notes', JSON.stringify(notes));
-    localStorage.setItem('nests', JSON.stringify(nests));
+    // Update localStorage with snapshots
+    localStorage.setItem('notes', JSON.stringify(noteSnapshots));
+    localStorage.setItem('nests', JSON.stringify(nestSnapshots));
 
     console.log('Graph → localStorage sync completed');
   }

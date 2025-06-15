@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Database, Plus, FolderOpen, FileText, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -64,90 +63,98 @@ const NestView = ({
     return notes.filter(note => note.nestId === nestId && !note.parentId);
   };
 
-  const renderNoteTree = (nestNotes: Note[], nestId: string): React.ReactNode => {
-    return nestNotes.map((note) => (
-      <div 
-        key={note.id}
-        className="ml-4 select-none relative"
-        onMouseEnter={() => setHoveredId(note.id)}
-        onMouseLeave={() => setHoveredId(null)}
-      >
-        <div
-          onClick={() => {
-            if (note.type === 'folder') {
-              onToggleFolder(note.id);
-            } else {
-              onNoteSelect(note.id);
-            }
-          }}
-          className={cn(
-            "flex items-center p-1 rounded cursor-pointer hover:bg-accent/50 transition-colors",
-            selectedNoteId === note.id && note.type === 'note' && "bg-accent"
-          )}
-        >
-          {note.type === 'folder' ? (
-            <FolderOpen className="h-3 w-3 mr-2 text-blue-500" />
-          ) : (
-            <FileText className="h-3 w-3 mr-2 text-muted-foreground" />
-          )}
-          
-          <div className="flex-1 min-w-0">
-            {renamingNoteId === note.id ? (
-              <InlineRename
-                initialValue={note.title}
-                onSave={(newTitle) => handleRenameNote(note.id, newTitle)}
-                onCancel={() => setRenamingNoteId(null)}
-                className="w-full"
-              />
-            ) : (
-              <span className="text-xs text-foreground truncate">{note.title}</span>
-            )}
-          </div>
+  const getChildNotes = (parentId: string, nestId: string) => {
+    return notes.filter(note => note.parentId === parentId && note.nestId === nestId);
+  };
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "transition-opacity p-0 h-auto w-4 ml-1",
-                  hoveredId === note.id ? "opacity-100" : "opacity-0"
-                )}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal size={10} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm">
-              <DropdownMenuItem onClick={() => onNewNote(nestId, note.id)}>
-                <FileText className="mr-2 h-3 w-3" />
-                New Note
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onNewFolder(nestId, note.id)}>
-                <FolderOpen className="mr-2 h-3 w-3" />
-                New Folder
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setRenamingNoteId(note.id)}>
-                Rename
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => onDeleteNote(note.id)}
-                className="text-destructive focus:text-destructive"
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        
-        {note.type === 'folder' && note.isExpanded && note.children && note.children.length > 0 && (
-          <div className="ml-2">
-            {renderNoteTree(note.children, nestId)}
+  const renderNoteTree = (nestNotes: Note[], nestId: string): React.ReactNode => {
+    return nestNotes.map((note) => {
+      const childNotes = getChildNotes(note.id, nestId);
+      
+      return (
+        <div 
+          key={note.id}
+          className="ml-4 select-none relative"
+          onMouseEnter={() => setHoveredId(note.id)}
+          onMouseLeave={() => setHoveredId(null)}
+        >
+          <div
+            onClick={() => {
+              if (note.type === 'folder') {
+                onToggleFolder(note.id);
+              } else {
+                onNoteSelect(note.id);
+              }
+            }}
+            className={cn(
+              "flex items-center p-1 rounded cursor-pointer hover:bg-accent/50 transition-colors",
+              selectedNoteId === note.id && note.type === 'note' && "bg-accent"
+            )}
+          >
+            {note.type === 'folder' ? (
+              <FolderOpen className="h-3 w-3 mr-2 text-blue-500" />
+            ) : (
+              <FileText className="h-3 w-3 mr-2 text-muted-foreground" />
+            )}
+            
+            <div className="flex-1 min-w-0">
+              {renamingNoteId === note.id ? (
+                <InlineRename
+                  initialValue={note.title}
+                  onSave={(newTitle) => handleRenameNote(note.id, newTitle)}
+                  onCancel={() => setRenamingNoteId(null)}
+                  className="w-full"
+                />
+              ) : (
+                <span className="text-xs text-foreground truncate">{note.title}</span>
+              )}
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "transition-opacity p-0 h-auto w-4 ml-1",
+                    hoveredId === note.id ? "opacity-100" : "opacity-0"
+                  )}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal size={10} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-sm">
+                <DropdownMenuItem onClick={() => onNewNote(nestId, note.id)}>
+                  <FileText className="mr-2 h-3 w-3" />
+                  New Note
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onNewFolder(nestId, note.id)}>
+                  <FolderOpen className="mr-2 h-3 w-3" />
+                  New Folder
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setRenamingNoteId(note.id)}>
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => onDeleteNote(note.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        )}
-      </div>
-    ));
+          
+          {note.type === 'folder' && note.isExpanded && childNotes.length > 0 && (
+            <div className="ml-2">
+              {renderNoteTree(childNotes, nestId)}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   if (nests.length === 0) {

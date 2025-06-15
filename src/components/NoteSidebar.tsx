@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Search, Plus, FileText, Folder, FolderOpen, ChevronRight, MoreHorizontal, Database } from 'lucide-react';
@@ -31,7 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Note, Nest } from '@/types/note';
+import { Note, Nest, NoteWithChildren } from '@/types/note';
 import { cn } from '@/lib/utils';
 import InlineRename from './InlineRename';
 import NestView from './NestView';
@@ -87,11 +86,11 @@ const NoteSidebar = ({
     return plainText.length > length ? plainText.substring(0, length) + '...' : plainText;
   };
 
-  const buildTree = (notes: Note[]): Note[] => {
-    const noteMap = new Map<string, Note>();
-    const rootNotes: Note[] = [];
+  const buildTree = (notes: Note[]): NoteWithChildren[] => {
+    const noteMap = new Map<string, NoteWithChildren>();
+    const rootNotes: NoteWithChildren[] = [];
 
-    // Create map of all notes
+    // Create map of all notes with children arrays
     notes.forEach(note => {
       noteMap.set(note.id, { ...note, children: [] });
     });
@@ -120,7 +119,7 @@ const NoteSidebar = ({
     setRenamingId(null);
   };
 
-  const renderNoteTree = (treeNotes: Note[], level: number = 0, isLast: boolean[] = []): React.ReactNode => {
+  const renderNoteTree = (treeNotes: NoteWithChildren[], level: number = 0, isLast: boolean[] = []): React.ReactNode => {
     return treeNotes.map((note, index) => {
       const isLastItem = index === treeNotes.length - 1;
       const currentIsLast = [...isLast, isLastItem];
