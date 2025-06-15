@@ -1,4 +1,3 @@
-
 import { Extension } from '@tiptap/core';
 import { InputRule } from '@tiptap/core';
 
@@ -86,19 +85,15 @@ export const NoteSyntax = Extension.create({
         },
       }),
 
-      // 5️⃣ [[Wiki Links]]
+      // 5️⃣ [[Wiki Links]] - now using WikiLink node
       new InputRule({
         find: LINK_REGEX,
         handler: ({ state, range, match }) => {
-          const markType = schema.marks.link;
-          if (!markType) return null;
+          const nodeType = schema.nodes.wikilink;
+          if (!nodeType) return null;
 
-          const mark = markType.create({
-            href: `/wiki/${encodeURIComponent(match[1])}`,
-            target: '_blank',
-          });
-          const tr = state.tr
-            .addMark(range.from, range.to - 1, mark);
+          const node = nodeType.create({ target: match[1] });
+          const tr = state.tr.replaceRangeWith(range.from, range.to, node);
           return tr;
         },
       }),

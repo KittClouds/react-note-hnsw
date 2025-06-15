@@ -55,6 +55,7 @@ import { Drawer } from 'reactjs-tiptap-editor/drawer';
 import { Excalidraw } from 'reactjs-tiptap-editor/excalidraw';
 import { Twitter } from 'reactjs-tiptap-editor/twitter';
 import { Mermaid } from 'reactjs-tiptap-editor/mermaid';
+import { WikiLink } from '@/extensions/WikiLink';
 
 // Import CSS
 import 'reactjs-tiptap-editor/style.css';
@@ -115,6 +116,7 @@ const extensions = [
   // Add custom schema extensions first
   Tag,
   Backlink,
+  WikiLink,
   Entity,
   Triple,
   
