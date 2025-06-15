@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useActiveClusterEntities, ClusterEntity } from '@/components/entity-manager/useActiveClusterEntities';
 import { useActiveNoteConnections } from './useLiveStore';
-import { Entity } from '@/lib/utils/parsingUtils';
+import { Entity } from '@/utils/parsingUtils';
 
 export type EntityScope = 'note' | 'folder' | 'cluster' | 'vault';
 

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@livestore/react';
 import { useEntityAttributes, useBlueprintsArray } from '@/hooks/useLiveStore';
 import { events } from '@/livestore/schema';
-import { Entity } from '@/lib/utils/parsingUtils';
+import { Entity } from '@/utils/parsingUtils';
 import { ClusterEntity } from './useActiveClusterEntities';
 import { AttributeEditor } from './AttributeEditor';
 import { TypedAttribute, AttributeType, AttributeValue } from '@/types/attributes';
