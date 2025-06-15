@@ -1,5 +1,6 @@
 import { Graph, Node, Edge } from './GraphInterface';
 import { Note, Nest } from '@/types/note';
+import { parseAllNotes, Entity } from '../utils/parsingUtils';
 
 export interface SyncValidationResult {
   isValid: boolean;
@@ -232,6 +233,9 @@ export class GraphSyncService {
     // Create hierarchy edges
     this.createHierarchyEdges(notes);
 
+    // Sync entities and relationships from note content
+    await this.syncEntitiesAndRelationships(notes);
+
     // Validate sync
     const validation = this.validateSync();
     if (!validation.isValid) {
@@ -407,6 +411,93 @@ export class GraphSyncService {
         console.debug(`Could not create hierarchy edge for note ${note.id}:`, error);
       }
     }
+  }
+
+  /**
+   * Sync entities and relationships from note content to the graph
+   */
+  private async syncEntitiesAndRelationships(notes: Note[]): Promise<void> {
+    console.log('Syncing entities and relationships from note content...');
+    const { entitiesMap, tagsMap, mentionsMap, linksMap, triplesMap } = parseAllNotes(notes);
+
+    const allEntities = new Map<string, Entity>();
+    
+    const addEntity = (entity: Entity) => {
+        const entityId = `entity-${entity.kind}-${entity.label}`;
+        if (!allEntities.has(entityId)) {
+            allEntities.set(entityId, entity);
+        }
+    };
+
+    // Collect all unique entities from explicit definitions, tags, and mentions
+    entitiesMap.forEach(noteEntities => noteEntities.forEach(addEntity));
+    tagsMap.forEach(noteTags => noteTags.forEach(tag => addEntity({ kind: 'CONCEPT', label: tag })));
+    mentionsMap.forEach(noteMentions => noteMentions.forEach(mention => addEntity({ kind: 'MENTION', label: mention })));
+
+    // Add all unique entity nodes to the graph
+    for (const [entityId, entity] of allEntities.entries()) {
+        try {
+            this.graph.addNode('entity', {
+                id: entityId,
+                ...entity
+            }, null, entityId);
+        } catch (error) {
+            // Ignore if node already exists, which can happen with concurrent adds
+            if (!(error instanceof Error && error.message.includes('already exists'))) {
+                console.warn(`Could not add entity node ${entityId}:`, error);
+            }
+        }
+    }
+
+    // Create relationship edges
+    const noteTitleToIdMap = new Map(notes.map(n => [n.title, n.id]));
+
+    // 1. Note -> Contained Entity
+    entitiesMap.forEach((noteEntities, noteId) => {
+        noteEntities.forEach(entity => {
+            const entityId = `entity-${entity.kind}-${entity.label}`;
+            try { this.graph.addEdge('contains', noteId, entityId); } catch (e) { /* ignore */ }
+        });
+    });
+    
+    // 2. Note -> Tag Entity
+    tagsMap.forEach((noteTags, noteId) => {
+        noteTags.forEach(tag => {
+            const entityId = `entity-CONCEPT-${tag}`;
+            try { this.graph.addEdge('hasTag', noteId, entityId); } catch (e) { /* ignore */ }
+        });
+    });
+    
+    // 3. Note -> Mention Entity
+    mentionsMap.forEach((noteMentions, noteId) => {
+        noteMentions.forEach(mention => {
+            const entityId = `entity-MENTION-${mention}`;
+            try { this.graph.addEdge('mentions', noteId, entityId); } catch (e) { /* ignore */ }
+        });
+    });
+
+    // 4. Note -> Linked Note
+    linksMap.forEach((linkTitles, sourceNoteId) => {
+        linkTitles.forEach(title => {
+            const targetNoteId = noteTitleToIdMap.get(title);
+            if (targetNoteId && targetNoteId !== sourceNoteId) {
+                try { this.graph.addEdge('linksTo', sourceNoteId, targetNoteId); } catch (e) { /* ignore */ }
+            }
+        });
+    });
+    
+    // 5. Subject Entity -> Object Entity (from Triples)
+    triplesMap.forEach((noteTriples, noteId) => {
+        noteTriples.forEach(triple => {
+            const subjectId = `entity-${triple.subject.kind}-${triple.subject.label}`;
+            const objectId = `entity-${triple.object.kind}-${triple.object.label}`;
+            try {
+                this.graph.addEdge(triple.predicate, subjectId, objectId, { sourceNoteId: noteId });
+            } catch (e) { /* ignore */ }
+        });
+    });
+
+    console.log(`Processed ${allEntities.size} unique entities and their relationships.`);
   }
 
   /**
