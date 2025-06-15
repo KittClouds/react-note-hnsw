@@ -1,6 +1,8 @@
+
 import { Note } from '@/types/note';
 import { embeddingService } from './EmbeddingService';
 import { HNSW } from './hnsw';
+import { vecToBlob, blobToVec } from './binaryUtils';
 
 export interface SearchResult {
   noteId: string;
@@ -17,11 +19,32 @@ interface EmbeddingData {
   updatedAt: number;
 }
 
+// L2 normalize a vector to unit length for vector hygiene
+function l2Normalize(v: Float32Array): Float32Array {
+  let norm = 0; 
+  for (const x of v) norm += x * x;
+  norm = 1 / Math.sqrt(norm || 1e-9);
+  return v.map(x => x * norm) as Float32Array;
+}
+
 class SemanticSearchService {
   private embeddings = new Map<string, EmbeddingData>();
   private hnswIndex: HNSW | null = null;
   private isInitialized = false;
   private indexNeedsRebuild = false;
+  
+  // Enhanced functionality
+  private noteIdToHnswId = new Map<string, number>();
+  private hnswIdToNoteId = new Map<number, string>();
+  private nextHnswId = 0;
+  private tombstones = new Set<number>();
+  private queryCache = new Map<string, Float32Array>();
+  private resultsCache = new Map<string, SearchResult[]>();
+  private config = {
+    efSearch: 50,
+    efConstruction: 200,
+    cacheSize: 128
+  };
 
   async initialize() {
     if (this.isInitialized) return;
@@ -72,7 +95,10 @@ class SemanticSearchService {
         const parsed = JSON.parse(stored);
         this.hnswIndex = HNSW.fromJSON(parsed);
         
-        // Verify index is still valid (same number of nodes as embeddings)
+        // Rebuild mappings from stored data
+        this.rebuildMappings();
+        
+        // Verify index is still valid
         if (this.hnswIndex.nodes.size !== this.embeddings.size) {
           console.log('HNSW index size mismatch, will rebuild');
           this.indexNeedsRebuild = true;
@@ -85,6 +111,20 @@ class SemanticSearchService {
     } else if (this.embeddings.size > 0) {
       this.indexNeedsRebuild = true;
     }
+  }
+
+  private rebuildMappings() {
+    this.noteIdToHnswId.clear();
+    this.hnswIdToNoteId.clear();
+    this.nextHnswId = 0;
+    
+    let idCounter = 0;
+    this.embeddings.forEach((_, noteId) => {
+      this.noteIdToHnswId.set(noteId, idCounter);
+      this.hnswIdToNoteId.set(idCounter, noteId);
+      idCounter++;
+    });
+    this.nextHnswId = idCounter;
   }
 
   private async saveHNSWIndexToStorage() {
@@ -103,26 +143,84 @@ class SemanticSearchService {
 
     console.log('Building HNSW index for', this.embeddings.size, 'embeddings');
     
-    this.hnswIndex = new HNSW(16, 200, 'cosine');
+    this.hnswIndex = new HNSW(16, this.config.efConstruction, 'cosine');
     
     const indexData: { id: number; vector: Float32Array }[] = [];
-    let idCounter = 0;
-    const idMapping = new Map<number, string>();
+    this.noteIdToHnswId.clear();
+    this.hnswIdToNoteId.clear();
+    this.nextHnswId = 0;
     
+    let idCounter = 0;
     this.embeddings.forEach((embedding, noteId) => {
-      idMapping.set(idCounter, noteId);
-      indexData.push({ id: idCounter, vector: embedding.vector });
+      this.noteIdToHnswId.set(noteId, idCounter);
+      this.hnswIdToNoteId.set(idCounter, noteId);
+      indexData.push({ id: idCounter, vector: l2Normalize(embedding.vector) });
       idCounter++;
     });
+    this.nextHnswId = idCounter;
     
     await this.hnswIndex.buildIndex(indexData);
     this.indexNeedsRebuild = false;
-    
-    // Store the ID mapping for search results
-    (this.hnswIndex as any).idMapping = idMapping;
+    this.tombstones.clear(); // Clear tombstones after rebuild
     
     await this.saveHNSWIndexToStorage();
     console.log('HNSW index built successfully');
+  }
+
+  // Enhanced point management with tombstones
+  private async addPoint(noteId: string, vector: Float32Array, title: string, content: string) {
+    const existingHnswId = this.noteIdToHnswId.get(noteId);
+    if (existingHnswId !== undefined) {
+      // Mark old point as deleted using tombstones
+      this.tombstones.add(existingHnswId);
+    }
+
+    const normalizedVector = l2Normalize(vector);
+    const newHnswId = this.nextHnswId++;
+
+    if (this.hnswIndex) {
+      await this.hnswIndex.addPoint(newHnswId, normalizedVector);
+    }
+    
+    this.noteIdToHnswId.set(noteId, newHnswId);
+    this.hnswIdToNoteId.set(newHnswId, noteId);
+  }
+
+  private removePoint(noteId: string) {
+    const hnswId = this.noteIdToHnswId.get(noteId);
+    if (hnswId !== undefined) {
+      this.tombstones.add(hnswId);
+      console.log(`Added tombstone for HNSW ID ${hnswId} (Note: ${noteId})`);
+    }
+  }
+
+  // Adaptive search with dynamic efSearch
+  private adaptiveSearch(queryVector: Float32Array, limit: number) {
+    if (!this.hnswIndex) return [];
+    
+    let efSearch = this.config.efSearch;
+    let results = this.hnswIndex.searchKNN(queryVector, limit, efSearch);
+
+    // Filter out tombstoned results
+    results = results.filter(result => !this.tombstones.has(result.id));
+
+    // If recall looks low, double ef and retry once
+    if (results.length > 0 && (results[0].score < 0.65 || results.length < limit)) {
+      efSearch *= 2;
+      const retryResults = this.hnswIndex.searchKNN(queryVector, limit * 2, efSearch);
+      results = retryResults.filter(result => !this.tombstones.has(result.id));
+    }
+    
+    return results;
+  }
+
+  // Exact cosine similarity for reranking
+  private exactCosine(v1: Float32Array, v2: Float32Array): number {
+    let dotProduct = 0;
+    for (let i = 0; i < v1.length; i++) {
+      dotProduct += v1[i] * v2[i];
+    }
+    return dotProduct; // Assumes vectors are pre-normalized
   }
 
   async syncAllNotes(notes: Note[]): Promise<number> {
@@ -156,16 +254,23 @@ class SemanticSearchService {
       const text = `${note.title}\n${this.extractTextFromContent(note.content)}`;
       const result = await embeddingService.embed([text]);
       
+      // Apply L2 normalization for vector hygiene
+      const normalizedVector = l2Normalize(result.embeddings);
+      
       this.embeddings.set(note.id, {
         id: note.id,
-        vector: result.embeddings,
+        vector: normalizedVector,
         title: note.title,
         content: this.extractTextFromContent(note.content),
         updatedAt: noteUpdatedAt
       });
 
-      // Mark that HNSW index needs rebuilding
-      this.indexNeedsRebuild = true;
+      // Add to HNSW index if it exists
+      if (this.hnswIndex) {
+        await this.addPoint(note.id, normalizedVector, note.title, this.extractTextFromContent(note.content));
+      } else {
+        this.indexNeedsRebuild = true;
+      }
 
       // Save to storage immediately for single note updates
       this.saveEmbeddingsToStorage();
@@ -212,7 +317,7 @@ class SemanticSearchService {
     const similarities: { noteId: string; score: number; title: string; content: string }[] = [];
     
     this.embeddings.forEach((embedding) => {
-      const similarity = this.cosineSimilarity(queryVector, embedding.vector);
+      const similarity = this.exactCosine(queryVector, embedding.vector);
       similarities.push({
         noteId: embedding.id,
         score: similarity,
@@ -241,55 +346,79 @@ class SemanticSearchService {
       return [];
     }
 
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return [];
+
     try {
-      const result = await embeddingService.embed([query]);
-      const queryVector = result.embeddings;
+      // 1. Check results cache
+      if (this.resultsCache.has(trimmedQuery)) {
+        return this.resultsCache.get(trimmedQuery)!.slice(0, limit);
+      }
+
+      // 2. Get query vector (from cache or by embedding)
+      let queryVector = this.queryCache.get(trimmedQuery);
+      if (!queryVector) {
+        const result = await embeddingService.embed([trimmedQuery]);
+        queryVector = l2Normalize(result.embeddings);
+        this.queryCache.set(trimmedQuery, queryVector);
+        
+        // Simple LRU cache eviction
+        if (this.queryCache.size > this.config.cacheSize) {
+          const firstKey = this.queryCache.keys().next().value;
+          this.queryCache.delete(firstKey);
+        }
+      }
       
       // Ensure HNSW index is built
       await this.ensureHNSWIndex();
       
-      // Use HNSW for fast search if available
+      // Use enhanced HNSW search if available
       if (this.hnswIndex && this.embeddings.size > 5) {
         try {
-          const idMapping = (this.hnswIndex as any).idMapping as Map<number, string>;
-          const hnswResults = this.hnswIndex.searchKNN(queryVector, limit);
+          // 3. Adaptive HNSW search
+          const kForRerank = limit * 3; // Get more candidates for reranking
+          const hnswResults = this.adaptiveSearch(queryVector, kForRerank);
           
-          return hnswResults.map(result => {
-            const noteId = idMapping.get(result.id);
+          // 4. Exact reranking for better precision
+          const rerankedResults = hnswResults.map(result => {
+            const noteId = this.hnswIdToNoteId.get(result.id);
             const embedding = this.embeddings.get(noteId!);
+            if (!embedding) return null;
+            
+            const exactScore = this.exactCosine(queryVector!, embedding.vector);
             return {
               noteId: noteId!,
-              title: embedding!.title,
-              content: embedding!.content,
-              score: result.score
+              title: embedding.title,
+              content: embedding.content,
+              score: exactScore
             };
-          }).filter(result => result.noteId); // Filter out any invalid results
+          }).filter(result => result !== null) as SearchResult[];
+          
+          // Sort by exact scores and take top results
+          const finalResults = rerankedResults
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit);
+          
+          // 5. Cache results
+          this.resultsCache.set(trimmedQuery, finalResults);
+          if (this.resultsCache.size > this.config.cacheSize) {
+            const firstKey = this.resultsCache.keys().next().value;
+            this.resultsCache.delete(firstKey);
+          }
+          
+          return finalResults;
         } catch (hnswError) {
           console.warn('HNSW search failed, falling back to linear search:', hnswError);
           return this.fallbackLinearSearch(query, queryVector, limit);
         }
       } else {
-        // Use linear search for small datasets or if HNSW is not available
+        // Use linear search for small datasets
         return this.fallbackLinearSearch(query, queryVector, limit);
       }
     } catch (error) {
       console.error('Search failed:', error);
       return [];
     }
-  }
-
-  private cosineSimilarity(a: Float32Array, b: Float32Array): number {
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-    
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
   getEmbeddingCount(): number {
