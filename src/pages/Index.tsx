@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -31,6 +30,7 @@ import NoteHeader from '@/components/NoteHeader';
 import ConnectionsPanel from '@/components/ConnectionsPanel';
 import RightSidebar from '@/components/RightSidebar';
 import { RightSidebarProvider, RightSidebarTrigger } from '@/components/RightSidebarProvider';
+import { EntityManagerDrawer } from '@/components/entity-manager/EntityManagerDrawer';
 
 const NotesApp = () => {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -349,6 +349,7 @@ const NotesApp = () => {
               <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
                 <div></div>
                 <div className="flex items-center gap-2">
+                  <EntityManagerDrawer />
                   <RightSidebarTrigger />
                   <Button
                     variant="ghost"
