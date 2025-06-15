@@ -38,12 +38,35 @@ export const Connections = Extension.create({
           this.storage.triples = connections.triples;
           this.storage.backlinks = connections.backlinks;
 
-          // Emit event for React components to subscribe to
-          this.editor.emit('connectionsUpdate', { ...this.storage });
+          // Use setTimeout to emit event after transaction is complete
+          setTimeout(() => {
+            // Create a custom event on the editor's DOM element
+            const event = new CustomEvent('connectionsUpdate', {
+              detail: { ...this.storage }
+            });
+            this.editor.view.dom.dispatchEvent(event);
+          }, 0);
 
           return null; // No transaction needed, just updating storage
         },
       }),
     ];
+  },
+
+  onCreate() {
+    // Add event listener methods to the editor
+    this.editor.connectionsOn = (eventName: string, handler: Function) => {
+      if (eventName === 'connectionsUpdate') {
+        this.editor.view.dom.addEventListener('connectionsUpdate', (e: any) => {
+          handler(e.detail);
+        });
+      }
+    };
+
+    this.editor.connectionsOff = (eventName: string, handler: Function) => {
+      if (eventName === 'connectionsUpdate') {
+        this.editor.view.dom.removeEventListener('connectionsUpdate', handler);
+      }
+    };
   },
 });

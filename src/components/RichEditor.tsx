@@ -1,3 +1,4 @@
+
 import { useCallback, useState, useEffect } from 'react';
 import RichTextEditor, { BaseKit } from 'reactjs-tiptap-editor';
 import { locale } from 'reactjs-tiptap-editor/locale-bundle';
@@ -74,14 +75,6 @@ import 'react-image-crop/dist/ReactCrop.css';
 // Import parsing utilities
 import { parseNoteConnections, ParsedConnections } from '@/utils/parsingUtils';
 
-// Import new extensions
-import { Tag } from '@/extensions/Tag';
-import { Backlink } from '@/extensions/Backlink';
-import { Entity } from '@/extensions/Entity';
-import { Triple } from '@/extensions/Triple';
-import { NoteSyntax } from '@/extensions/NoteSyntax';
-import { Connections } from '@/extensions/Connections';
-
 interface RichEditorProps {
   content: string;
   onChange: (content: string) => void;
@@ -99,15 +92,6 @@ function convertBase64ToBlob(base64: string) {
     u8arr[n] = bstr.charCodeAt(n);
   }
   return new Blob([u8arr], { type: mime });
-}
-
-function debounce(func: any, wait: number) {
-  let timeout: NodeJS.Timeout;
-  return function (...args: any[]) {
-    clearTimeout(timeout);
-    // @ts-ignore
-    timeout = setTimeout(() => func.apply(this, args), wait);
-  };
 }
 
 const extensions = [
@@ -290,18 +274,17 @@ const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: Rich
     };
   }, [editorInstance, onConnectionsChange]);
 
-  const onValueChange = useCallback((value: any, editor: any) => {
+  const onValueChange = useCallback((value: any) => {
     setEditorContent(value);
-    
-    // Store the editor instance for connection parsing
-    if (!editorInstance) {
-      setEditorInstance(editor);
-    }
     
     // Convert to JSON string for storage
     const jsonString = typeof value === 'string' ? value : JSON.stringify(value);
     onChange(jsonString);
-  }, [onChange, editorInstance]);
+  }, [onChange]);
+
+  const onEditorCreate = useCallback((editor: any) => {
+    setEditorInstance(editor);
+  }, []);
 
   return (
     <div className="h-full flex flex-col">
@@ -309,6 +292,7 @@ const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: Rich
         output="json"
         content={editorContent as any}
         onChangeContent={onValueChange}
+        onCreated={onEditorCreate}
         extensions={extensions}
         dark={isDarkMode}
         minHeight="400px"
