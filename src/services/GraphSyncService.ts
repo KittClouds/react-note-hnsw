@@ -456,7 +456,7 @@ export class GraphSyncService {
     entitiesMap.forEach((noteEntities, noteId) => {
         noteEntities.forEach(entity => {
             const entityId = `entity-${entity.kind}-${entity.label}`;
-            try { this.graph.addEdge('contains', noteId, entityId); } catch (e) { /* ignore */ }
+            try { this.graph.addEdge('semantic', noteId, entityId, { predicate: 'defines' }); } catch (e) { /* ignore */ }
         });
     });
     
@@ -492,7 +492,7 @@ export class GraphSyncService {
             const subjectId = `entity-${triple.subject.kind}-${triple.subject.label}`;
             const objectId = `entity-${triple.object.kind}-${triple.object.label}`;
             try {
-                this.graph.addEdge(triple.predicate, subjectId, objectId, { sourceNoteId: noteId });
+                this.graph.addEdge('semantic', subjectId, objectId, { predicate: triple.predicate, sourceNoteId: noteId });
             } catch (e) { /* ignore */ }
         });
     });
