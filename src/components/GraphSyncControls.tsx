@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -6,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Database, arrow-right, circle-arrow-right } from 'lucide-react';
+import { Database, CircleArrowRight, CircleCheck } from 'lucide-react';
 
 interface GraphSyncControlsProps {
   syncService: any;
@@ -138,11 +137,11 @@ export function GraphSyncControls({
         {/* Actions */}
         <div className="flex gap-2">
           <Button onClick={forceSync} variant="outline">
-            <circle-arrow-right className="h-4 w-4 mr-2" />
+            <CircleArrowRight className="h-4 w-4 mr-2" />
             Force Sync
           </Button>
           <Button onClick={handleValidation} variant="outline">
-            <circle-check className="h-4 w-4 mr-2" />
+            <CircleCheck className="h-4 w-4 mr-2" />
             Validate Sync
           </Button>
         </div>
@@ -159,7 +158,7 @@ export function GraphSyncControls({
               </div>
               <div className="text-sm space-y-1">
                 <div>localStorage: {validationResult.localStorage?.noteCount} notes, {validationResult.localStorage?.nestCount} nests</div>
-                <div>Graph: {validationResult.graph?.noteCount} notes, {validationResult.graph?.nestCount} nests</div>
+                <div>Graph: {validationResult.graph?.nodeCount} nodes, {validationResult.graph?.edgeCount} edges</div>
                 {validationResult.mismatches?.length > 0 && (
                   <div className="mt-2">
                     <div className="font-medium">Mismatches:</div>
