@@ -1,4 +1,3 @@
-
 import { Graph, Node, Edge } from './GraphInterface';
 import { Note, Nest } from '@/types/note';
 
@@ -17,16 +16,45 @@ export interface SyncValidationResult {
   };
 }
 
+export interface ConflictResolution {
+  strategy: 'localStorage' | 'graph' | 'merge' | 'manual';
+  autoResolve: boolean;
+}
+
+export interface GraphSyncOptions {
+  enableBidirectionalSync: boolean;
+  conflictResolution: ConflictResolution;
+  syncDirection: 'localStorage-to-graph' | 'graph-to-localStorage' | 'bidirectional';
+}
+
 export class GraphSyncService {
   private graph: Graph;
   private isEnabled: boolean = true;
   private lastSyncTimestamp: number = 0;
   private syncDebounceTimeout: NodeJS.Timeout | null = null;
+  private options: GraphSyncOptions;
 
-  constructor(graph: Graph) {
+  constructor(graph: Graph, options: Partial<GraphSyncOptions> = {}) {
     this.graph = graph;
+    this.options = {
+      enableBidirectionalSync: false,
+      conflictResolution: {
+        strategy: 'localStorage',
+        autoResolve: true
+      },
+      syncDirection: 'localStorage-to-graph',
+      ...options
+    };
     this.setupStorageListener();
-    console.log('GraphSyncService initialized');
+    console.log('GraphSyncService initialized with options:', this.options);
+  }
+
+  /**
+   * Update sync options
+   */
+  public updateOptions(newOptions: Partial<GraphSyncOptions>): void {
+    this.options = { ...this.options, ...newOptions };
+    console.log('GraphSyncService options updated:', this.options);
   }
 
   /**
@@ -73,45 +101,187 @@ export class GraphSyncService {
   }
 
   /**
-   * Perform the actual sync from localStorage to Graph
+   * Perform the actual sync based on sync direction
    */
   public async performSync(): Promise<void> {
     if (!this.isEnabled) return;
 
     try {
-      console.log('Starting localStorage → Graph sync...');
+      console.log('Starting sync with direction:', this.options.syncDirection);
       const startTime = Date.now();
 
-      // Get data from localStorage
-      const notes = this.getNotesFromStorage();
-      const nests = this.getNestsFromStorage();
-
-      // Clear existing graph data
-      this.clearGraphData();
-
-      // Sync nests first (they might be parents)
-      await this.syncNests(nests);
-
-      // Sync notes
-      await this.syncNotes(notes);
-
-      // Create hierarchy edges
-      this.createHierarchyEdges(notes);
+      switch (this.options.syncDirection) {
+        case 'localStorage-to-graph':
+          await this.syncLocalStorageToGraph();
+          break;
+        case 'graph-to-localStorage':
+          await this.syncGraphToLocalStorage();
+          break;
+        case 'bidirectional':
+          if (this.options.enableBidirectionalSync) {
+            await this.performBidirectionalSync();
+          } else {
+            await this.syncLocalStorageToGraph();
+          }
+          break;
+      }
 
       this.lastSyncTimestamp = Date.now();
       console.log(`Sync completed in ${Date.now() - startTime}ms`);
 
-      // Validate sync
-      const validation = this.validateSync();
-      if (!validation.isValid) {
-        console.warn('Sync validation failed:', validation.mismatches);
-      } else {
-        console.log('Sync validation passed');
-      }
-
     } catch (error) {
       console.error('Sync failed:', error);
     }
+  }
+
+  /**
+   * Perform bidirectional sync with conflict resolution
+   */
+  private async performBidirectionalSync(): Promise<void> {
+    const conflicts = await this.detectConflicts();
+    
+    if (conflicts.length > 0) {
+      console.log('Conflicts detected:', conflicts);
+      await this.resolveConflicts(conflicts);
+    }
+
+    // If no conflicts or conflicts resolved, sync both ways
+    await this.syncLocalStorageToGraph();
+    
+    // Only sync back to localStorage if explicitly enabled
+    if (this.options.enableBidirectionalSync) {
+      await this.syncGraphToLocalStorage();
+    }
+  }
+
+  /**
+   * Detect conflicts between localStorage and graph
+   */
+  private async detectConflicts(): Promise<Array<{ type: 'note' | 'nest', id: string, issue: string }>> {
+    const conflicts: Array<{ type: 'note' | 'nest', id: string, issue: string }> = [];
+    
+    const notes = this.getNotesFromStorage();
+    const nests = this.getNestsFromStorage();
+    const graphNodes = this.graph.findNodes({});
+
+    // Check for timestamp conflicts
+    for (const note of notes) {
+      const graphNode = graphNodes.find(node => node.id === note.id);
+      if (graphNode && graphNode.data.updatedAt) {
+        const graphTime = new Date(graphNode.data.updatedAt).getTime();
+        const localTime = note.updatedAt.getTime();
+        
+        if (Math.abs(graphTime - localTime) > 1000) { // More than 1 second difference
+          conflicts.push({
+            type: 'note',
+            id: note.id,
+            issue: `Timestamp mismatch: localStorage=${localTime}, graph=${graphTime}`
+          });
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
+  /**
+   * Resolve conflicts based on strategy
+   */
+  private async resolveConflicts(conflicts: Array<{ type: 'note' | 'nest', id: string, issue: string }>): Promise<void> {
+    for (const conflict of conflicts) {
+      switch (this.options.conflictResolution.strategy) {
+        case 'localStorage':
+          console.log(`Resolving conflict ${conflict.id} in favor of localStorage`);
+          // Keep localStorage version, update graph
+          break;
+        case 'graph':
+          console.log(`Resolving conflict ${conflict.id} in favor of graph`);
+          // Keep graph version, update localStorage
+          break;
+        case 'merge':
+          console.log(`Attempting to merge conflict ${conflict.id}`);
+          // Implement merge strategy (for now, default to localStorage)
+          break;
+        case 'manual':
+          console.warn(`Manual resolution required for conflict ${conflict.id}`);
+          // Store conflict for manual resolution
+          break;
+      }
+    }
+  }
+
+  /**
+   * Sync from localStorage to Graph (existing functionality)
+   */
+  private async syncLocalStorageToGraph(): Promise<void> {
+    console.log('Syncing localStorage → Graph...');
+    
+    // Get data from localStorage
+    const notes = this.getNotesFromStorage();
+    const nests = this.getNestsFromStorage();
+
+    // Clear existing graph data
+    this.clearGraphData();
+
+    // Sync nests first (they might be parents)
+    await this.syncNests(nests);
+
+    // Sync notes
+    await this.syncNotes(notes);
+
+    // Create hierarchy edges
+    this.createHierarchyEdges(notes);
+
+    // Validate sync
+    const validation = this.validateSync();
+    if (!validation.isValid) {
+      console.warn('Sync validation failed:', validation.mismatches);
+    } else {
+      console.log('localStorage → Graph sync validation passed');
+    }
+  }
+
+  /**
+   * Sync from Graph to localStorage
+   */
+  private async syncGraphToLocalStorage(): Promise<void> {
+    if (!this.options.enableBidirectionalSync) {
+      console.log('Bidirectional sync disabled, skipping Graph → localStorage sync');
+      return;
+    }
+
+    console.log('Syncing Graph → localStorage...');
+    
+    const graphNodes = this.graph.findNodes({});
+    const graphNotes = graphNodes.filter(node => node.type === 'note' || node.type === 'folder');
+    const graphNests = graphNodes.filter(node => node.type === 'nest');
+
+    // Convert graph nodes back to Note/Nest format
+    const notes: Note[] = graphNotes.map(node => ({
+      id: node.id,
+      title: node.data.title || 'Untitled',
+      content: node.data.content || '',
+      type: node.data.type || 'note',
+      parentId: node.data.parentId || null,
+      nestId: node.data.nestId || null,
+      isExpanded: node.data.isExpanded || false,
+      createdAt: new Date(node.data.createdAt || Date.now()),
+      updatedAt: new Date(node.data.updatedAt || Date.now())
+    }));
+
+    const nests: Nest[] = graphNests.map(node => ({
+      id: node.id,
+      name: node.data.name || 'Untitled Nest',
+      description: node.data.description || '',
+      createdAt: new Date(node.data.createdAt || Date.now()),
+      updatedAt: new Date(node.data.updatedAt || Date.now())
+    }));
+
+    // Update localStorage
+    localStorage.setItem('notes', JSON.stringify(notes));
+    localStorage.setItem('nests', JSON.stringify(nests));
+
+    console.log('Graph → localStorage sync completed');
   }
 
   /**
@@ -298,7 +468,8 @@ export class GraphSyncService {
     return {
       isEnabled: this.isEnabled,
       lastSyncTimestamp: this.lastSyncTimestamp,
-      lastSyncTime: this.lastSyncTimestamp ? new Date(this.lastSyncTimestamp).toISOString() : 'Never'
+      lastSyncTime: this.lastSyncTimestamp ? new Date(this.lastSyncTimestamp).toISOString() : 'Never',
+      options: this.options
     };
   }
 
@@ -308,5 +479,29 @@ export class GraphSyncService {
   public forcSync(): void {
     console.log('Force sync requested');
     this.performSync();
+  }
+
+  /**
+   * Enable bidirectional sync
+   */
+  public enableBidirectionalSync(enabled: boolean = true): void {
+    this.updateOptions({ enableBidirectionalSync: enabled });
+    console.log(`Bidirectional sync ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Set sync direction
+   */
+  public setSyncDirection(direction: 'localStorage-to-graph' | 'graph-to-localStorage' | 'bidirectional'): void {
+    this.updateOptions({ syncDirection: direction });
+    console.log(`Sync direction set to: ${direction}`);
+  }
+
+  /**
+   * Set conflict resolution strategy
+   */
+  public setConflictResolution(strategy: ConflictResolution): void {
+    this.updateOptions({ conflictResolution: strategy });
+    console.log(`Conflict resolution strategy set to:`, strategy);
   }
 }

@@ -15,6 +15,7 @@ import { Note, Nest } from '@/types/note';
 import { NoteProvider } from '@/contexts/NoteContext';
 import { useGraph } from '@/hooks/useGraph';
 import { useGraphSync } from '@/hooks/useGraphSync';
+import { GraphSyncControls } from '@/components/GraphSyncControls';
 
 const DEFAULT_CONTENT = JSON.stringify({
   type: 'doc',
@@ -103,11 +104,27 @@ const NotesApp = () => {
     }
   }, [isDarkMode]);
 
-  // Add graph initialization
+  // Add graph initialization with feature flags
   const { graph, isInitialized: graphInitialized } = useGraph();
   
-  // Add graph sync with the actual graph instance
-  const { syncService, forceSync, getSyncStatus, validateSync } = useGraphSync(graph);
+  // Add graph sync with feature flag options
+  const { 
+    syncService, 
+    forceSync, 
+    getSyncStatus, 
+    validateSync,
+    enableBidirectionalSync,
+    setSyncDirection,
+    setConflictResolution,
+    updateOptions
+  } = useGraphSync(graph, {
+    enableBidirectionalSync: false, // Start with safe defaults
+    conflictResolution: {
+      strategy: 'localStorage', // Prefer localStorage for safety
+      autoResolve: true
+    },
+    syncDirection: 'localStorage-to-graph' // One-way sync initially
+  });
 
   const createNewNote = useCallback((parentId?: string, nestId?: string) => {
     const newNote: Note = {
@@ -293,7 +310,10 @@ const NotesApp = () => {
   const selectedNote = notes.find(note => note.id === selectedNoteId && note.type === 'note');
   const selectedNoteConnections = selectedNoteId ? noteConnections.get(selectedNoteId) || null : null;
 
-  // Keyboard shortcuts
+  // Add feature flag state
+  const [showGraphControls, setShowGraphControls] = useState(false);
+
+  // Add keyboard shortcut for graph controls (Ctrl/Cmd + G)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
@@ -309,6 +329,10 @@ const NotesApp = () => {
           case 'd':
             e.preventDefault();
             setIsDarkMode(prev => !prev);
+            break;
+          case 'g':
+            e.preventDefault();
+            setShowGraphControls(prev => !prev);
             break;
         }
       }
@@ -331,7 +355,7 @@ const NotesApp = () => {
     });
   }, []);
 
-  // Add sync status logging for debugging (can be removed later)
+  // Enhanced sync status logging with feature flag info
   useEffect(() => {
     if (syncService && graphInitialized) {
       console.log('Graph and sync service both ready');
@@ -390,11 +414,36 @@ const NotesApp = () => {
               />
 
               <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
-                <div></div>
+                <div className="flex items-center gap-2">
+                  {showGraphControls && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowGraphControls(false)}
+                    >
+                      Hide Graph Controls
+                    </Button>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <RightSidebarTrigger />
                 </div>
               </div>
+
+              {/* Graph Controls Panel */}
+              {showGraphControls && (
+                <div className="p-4 border-b bg-muted/30">
+                  <GraphSyncControls
+                    syncService={syncService}
+                    getSyncStatus={getSyncStatus}
+                    validateSync={validateSync}
+                    enableBidirectionalSync={enableBidirectionalSync}
+                    setSyncDirection={setSyncDirection}
+                    setConflictResolution={setConflictResolution}
+                    forceSync={forceSync}
+                  />
+                </div>
+              )}
 
               <div className="flex-1 flex flex-col overflow-hidden">
                 {selectedNote ? (
@@ -422,9 +471,14 @@ const NotesApp = () => {
                       <p className="text-muted-foreground mb-4">
                         Select a note from the sidebar or create a new one
                       </p>
-                      <Button onClick={() => createNewNote()}>
-                        Create New Note
-                      </Button>
+                      <div className="space-y-2">
+                        <Button onClick={() => createNewNote()}>
+                          Create New Note
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Press Ctrl+G to toggle graph sync controls
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}

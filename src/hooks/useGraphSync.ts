@@ -1,22 +1,22 @@
 
 import { useEffect, useRef } from 'react';
 import { Graph } from '@/services/GraphInterface';
-import { GraphSyncService } from '@/services/GraphSyncService';
+import { GraphSyncService, GraphSyncOptions } from '@/services/GraphSyncService';
 
-export function useGraphSync(graph: Graph | null) {
+export function useGraphSync(graph: Graph | null, options: Partial<GraphSyncOptions> = {}) {
   const syncServiceRef = useRef<GraphSyncService | null>(null);
 
   useEffect(() => {
     if (!graph) return;
 
-    // Initialize sync service
+    // Initialize sync service with options
     if (!syncServiceRef.current) {
-      syncServiceRef.current = new GraphSyncService(graph);
+      syncServiceRef.current = new GraphSyncService(graph, options);
       
       // Perform initial sync
       syncServiceRef.current.performSync();
       
-      console.log('Graph sync service initialized and initial sync performed');
+      console.log('Graph sync service initialized with options:', options);
     }
 
     return () => {
@@ -33,6 +33,12 @@ export function useGraphSync(graph: Graph | null) {
     forceSync: () => syncServiceRef.current?.forcSync(),
     getSyncStatus: () => syncServiceRef.current?.getSyncStatus(),
     validateSync: () => syncServiceRef.current?.validateSync(),
-    setEnabled: (enabled: boolean) => syncServiceRef.current?.setEnabled(enabled)
+    setEnabled: (enabled: boolean) => syncServiceRef.current?.setEnabled(enabled),
+    enableBidirectionalSync: (enabled: boolean) => syncServiceRef.current?.enableBidirectionalSync(enabled),
+    setSyncDirection: (direction: 'localStorage-to-graph' | 'graph-to-localStorage' | 'bidirectional') => 
+      syncServiceRef.current?.setSyncDirection(direction),
+    setConflictResolution: (strategy: { strategy: 'localStorage' | 'graph' | 'merge' | 'manual'; autoResolve: boolean }) => 
+      syncServiceRef.current?.setConflictResolution(strategy),
+    updateOptions: (newOptions: Partial<GraphSyncOptions>) => syncServiceRef.current?.updateOptions(newOptions)
   };
 }
