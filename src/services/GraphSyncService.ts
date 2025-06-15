@@ -1,4 +1,3 @@
-
 import { Graph, Node, Edge } from './GraphInterface';
 import { Note, Nest } from '@/types/note';
 
@@ -168,8 +167,8 @@ export class GraphSyncService {
     // Check for timestamp conflicts
     for (const note of notes) {
       const graphNode = graphNodes.find(node => node.id === note.id);
-      if (graphNode && graphNode.data?.updatedAt) {
-        const graphTime = new Date(graphNode.data.updatedAt).getTime();
+      if (graphNode && graphNode.props?.updatedAt) {
+        const graphTime = new Date(graphNode.props.updatedAt).getTime();
         const localTime = note.updatedAt.getTime();
         
         if (Math.abs(graphTime - localTime) > 1000) { // More than 1 second difference
@@ -262,22 +261,22 @@ export class GraphSyncService {
     // Convert graph nodes back to Note/Nest format
     const notes: Note[] = graphNoteNodes.map(node => ({
       id: node.id,
-      title: node.data?.title || 'Untitled',
-      content: node.data?.content || '',
-      type: (node.data?.type === 'folder' ? 'folder' : 'note') as 'note' | 'folder',
-      parentId: node.data?.parentId || null,
-      nestId: node.data?.nestId || null,
-      isExpanded: node.data?.isExpanded || false,
-      createdAt: new Date(node.data?.createdAt || Date.now()),
-      updatedAt: new Date(node.data?.updatedAt || Date.now())
+      title: node.props?.title || 'Untitled',
+      content: node.props?.content || '',
+      type: (node.props?.type === 'folder' ? 'folder' : 'note') as 'note' | 'folder',
+      parentId: node.props?.parentId || null,
+      nestId: node.props?.nestId || null,
+      isExpanded: node.props?.isExpanded || false,
+      createdAt: new Date(node.props?.createdAt || Date.now()),
+      updatedAt: new Date(node.props?.updatedAt || Date.now())
     }));
 
     const nests: Nest[] = graphNestNodes.map(node => ({
       id: node.id,
-      name: node.data?.name || 'Untitled Nest',
-      description: node.data?.description || '',
-      createdAt: new Date(node.data?.createdAt || Date.now()),
-      updatedAt: new Date(node.data?.updatedAt || Date.now())
+      name: node.props?.name || 'Untitled Nest',
+      description: node.props?.description || '',
+      createdAt: new Date(node.props?.createdAt || Date.now()),
+      updatedAt: new Date(node.props?.updatedAt || Date.now())
     }));
 
     // Update localStorage
