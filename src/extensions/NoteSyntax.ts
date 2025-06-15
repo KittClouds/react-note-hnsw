@@ -1,6 +1,6 @@
 
 import { Extension } from '@tiptap/core';
-import { markInputRule, nodeInputRule } from '@tiptap/pm/inputrules';
+import { InputRule } from '@tiptap/pm/inputrules';
 
 // Regex library - updated for TipTap input rules (must match at end of line)
 const TAG_REGEX = /#([a-zA-Z0-9_]+)$/;
@@ -18,10 +18,9 @@ export const NoteSyntax = Extension.create({
 
     return [
       // 1️⃣ Triple patterns (must come first to avoid conflicts)
-      nodeInputRule({
+      new InputRule({
         find: TRIPLE_REGEX,
-        type: schema.nodes.triple,
-        getAttributes: (match) => {
+        handler: ({ state, range, match }) => {
           const subject = {
             kind: match[1],
             label: match[2],
@@ -34,50 +33,93 @@ export const NoteSyntax = Extension.create({
             attrs: match[7] ? JSON.parse(match[7]) : undefined,
           };
           
-          return { subject, predicate, object };
+          const nodeType = schema.nodes.triple;
+          if (!nodeType) return null;
+
+          const node = nodeType.create({ subject, predicate, object });
+          const tr = state.tr.replaceRangeWith(range.from, range.to, node);
+          return tr;
         },
       }),
 
       // 2️⃣ Entity patterns
-      nodeInputRule({
+      new InputRule({
         find: ENTITY_REGEX,
-        type: schema.nodes.entity,
-        getAttributes: (match) => ({
-          kind: match[1],
-          label: match[2],
-          attributes: match[3] ? JSON.parse(match[3]) : undefined,
-        }),
+        handler: ({ state, range, match }) => {
+          const nodeType = schema.nodes.entity;
+          if (!nodeType) return null;
+
+          const node = nodeType.create({
+            kind: match[1],
+            label: match[2],
+            attributes: match[3] ? JSON.parse(match[3]) : undefined,
+          });
+          const tr = state.tr.replaceRangeWith(range.from, range.to, node);
+          return tr;
+        },
       }),
 
       // 3️⃣ #tags
-      markInputRule({
+      new InputRule({
         find: TAG_REGEX,
-        type: schema.marks.tag,
-        getAttributes: (match) => ({ tag: match[1] }),
+        handler: ({ state, range, match }) => {
+          const markType = schema.marks.tag;
+          if (!markType) return null;
+
+          const mark = markType.create({ tag: match[1] });
+          const tr = state.tr
+            .addMark(range.from, range.to, mark)
+            .insertText(' ');
+          return tr;
+        },
       }),
 
       // 4️⃣ @mentions (reuse existing mention mark)
-      markInputRule({
+      new InputRule({
         find: MENTION_REGEX,
-        type: schema.marks.mention,
-        getAttributes: (match) => ({ id: match[1] }),
+        handler: ({ state, range, match }) => {
+          const markType = schema.marks.mention;
+          if (!markType) return null;
+
+          const mark = markType.create({ id: match[1] });
+          const tr = state.tr
+            .addMark(range.from, range.to, mark)
+            .insertText(' ');
+          return tr;
+        },
       }),
 
       // 5️⃣ [[Wiki Links]]
-      markInputRule({
+      new InputRule({
         find: LINK_REGEX,
-        type: schema.marks.link,
-        getAttributes: (match) => ({
-          href: `/wiki/${encodeURIComponent(match[1])}`,
-          target: '_blank',
-        }),
+        handler: ({ state, range, match }) => {
+          const markType = schema.marks.link;
+          if (!markType) return null;
+
+          const mark = markType.create({
+            href: `/wiki/${encodeURIComponent(match[1])}`,
+            target: '_blank',
+          });
+          const tr = state.tr
+            .addMark(range.from, range.to, mark)
+            .insertText(' ');
+          return tr;
+        },
       }),
 
       // 6️⃣ <<Backlinks>>
-      markInputRule({
+      new InputRule({
         find: BACKLINK_REGEX,
-        type: schema.marks.backlink,
-        getAttributes: (match) => ({ target: match[1] }),
+        handler: ({ state, range, match }) => {
+          const markType = schema.marks.backlink;
+          if (!markType) return null;
+
+          const mark = markType.create({ target: match[1] });
+          const tr = state.tr
+            .addMark(range.from, range.to, mark)
+            .insertText(' ');
+          return tr;
+        },
       }),
     ];
   },
