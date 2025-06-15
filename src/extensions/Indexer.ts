@@ -24,14 +24,14 @@ export const Indexer = Extension.create({
   // Index once when the editor mounts
   onCreate() {
     if (this.storage.noteId) {
-      this.indexCurrentNote();
+      this.editor.commands.indexCurrentNote();
     }
   },
 
   // Index on every content change (debounced)
   onUpdate: debounce(function(this: any) {
     if (this.storage.noteId) {
-      this.indexCurrentNote();
+      this.editor.commands.indexCurrentNote();
     }
   }, 600),
 
