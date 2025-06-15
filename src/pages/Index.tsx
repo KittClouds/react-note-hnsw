@@ -1,5 +1,5 @@
+
 import { useState, useEffect, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { 
   SidebarProvider, 
@@ -12,7 +12,7 @@ import RichEditor from '@/components/RichEditor';
 import NoteSidebar from '@/components/NoteSidebar';
 import { ParsedConnections } from '@/utils/parsingUtils';
 import { Note, Nest } from '@/types/note';
-import { NoteProvider } from '@/contexts/NoteContext';
+import { NoteProvider, useNoteContext } from '@/contexts/NoteContext';
 
 const DEFAULT_CONTENT = JSON.stringify({
   type: 'doc',
@@ -28,14 +28,30 @@ const DEFAULT_CONTENT = JSON.stringify({
     }
   ]
 });
+
 import NoteHeader from '@/components/NoteHeader';
 import ConnectionsPanel from '@/components/ConnectionsPanel';
 import RightSidebar from '@/components/RightSidebar';
 import { RightSidebarProvider, RightSidebarTrigger } from '@/components/RightSidebarProvider';
 
 const NotesApp = () => {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [nests, setNests] = useState<Nest[]>([]);
+  const {
+    notes,
+    nests,
+    selectedNote,
+    setSelectedNote,
+    selectedNest,
+    setSelectedNest,
+    createNote,
+    createNest,
+    updateNote,
+    updateNest,
+    deleteNote,
+    deleteNest,
+    moveNote,
+    isInitialized
+  } = useNoteContext();
+
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [selectedNestId, setSelectedNestId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,51 +61,15 @@ const NotesApp = () => {
   
   const [connectionsPanelOpen, setConnectionsPanelOpen] = useState(false);
 
-  // Load data from localStorage on component mount
+  // Load dark mode preference
   useEffect(() => {
-    const savedNotes = localStorage.getItem('notes');
-    const savedNests = localStorage.getItem('nests');
     const savedDarkMode = localStorage.getItem('darkMode');
-    
-    if (savedNotes) {
-      const parsedNotes = JSON.parse(savedNotes).map((note: any) => ({
-        ...note,
-        type: note.type || 'note',
-        createdAt: new Date(note.createdAt),
-        updatedAt: new Date(note.updatedAt)
-      }));
-      setNotes(parsedNotes);
-      
-      // Select the first note if available
-      const firstNote = parsedNotes.find((note: Note) => note.type === 'note');
-      if (firstNote) {
-        setSelectedNoteId(firstNote.id);
-      }
-    }
-
-    if (savedNests) {
-      const parsedNests = JSON.parse(savedNests).map((nest: any) => ({
-        ...nest,
-        createdAt: new Date(nest.createdAt),
-        updatedAt: new Date(nest.updatedAt)
-      }));
-      setNests(parsedNests);
-    }
     
     if (savedDarkMode === 'true') {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
     }
   }, []);
-
-  // Save data to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('notes', JSON.stringify(notes));
-  }, [notes]);
-
-  useEffect(() => {
-    localStorage.setItem('nests', JSON.stringify(nests));
-  }, [nests]);
 
   // Save dark mode preference
   useEffect(() => {
@@ -101,149 +81,153 @@ const NotesApp = () => {
     }
   }, [isDarkMode]);
 
+  // Sync selected note/nest with context
+  useEffect(() => {
+    if (selectedNoteId) {
+      const note = notes.find(n => n.id === selectedNoteId);
+      setSelectedNote(note || null);
+    }
+  }, [selectedNoteId, notes, setSelectedNote]);
+
+  useEffect(() => {
+    if (selectedNestId) {
+      const nest = nests.find(n => n.id === selectedNestId);
+      setSelectedNest(nest || null);
+    }
+  }, [selectedNestId, nests, setSelectedNest]);
+
   const createNewNote = useCallback((parentId?: string, nestId?: string) => {
-    const newNote: Note = {
-      id: uuidv4(),
-      title: 'Untitled Note',
-      content: DEFAULT_CONTENT,
-      type: 'note',
-      parentId,
-      nestId,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    if (!isInitialized) return;
     
-    setNotes(prev => [newNote, ...prev]);
-    setSelectedNoteId(newNote.id);
-    toast({
-      title: "New note created",
-      description: "Start writing your thoughts!",
-    });
-  }, []);
+    try {
+      const newNote = createNote('Untitled Note', DEFAULT_CONTENT, 'note', parentId, nestId);
+      setSelectedNoteId(newNote.id);
+      toast({
+        title: "New note created",
+        description: "Start writing your thoughts!",
+      });
+    } catch (error) {
+      console.error('Failed to create note:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create note.",
+        variant: "destructive"
+      });
+    }
+  }, [createNote, isInitialized]);
 
   const createNewFolder = useCallback((parentId?: string, nestId?: string) => {
-    const newFolder: Note = {
-      id: uuidv4(),
-      title: 'New Folder',
-      content: '',
-      type: 'folder',
-      parentId,
-      nestId,
-      isExpanded: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    if (!isInitialized) return;
     
-    setNotes(prev => [newFolder, ...prev]);
-    toast({
-      title: "New folder created",
-      description: "Organize your notes!",
-    });
-  }, []);
+    try {
+      createNote('New Folder', '', 'folder', parentId, nestId);
+      toast({
+        title: "New folder created",
+        description: "Organize your notes!",
+      });
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create folder.",
+        variant: "destructive"
+      });
+    }
+  }, [createNote, isInitialized]);
 
   const createNewNest = useCallback(() => {
-    const newNest: Nest = {
-      id: uuidv4(),
-      name: 'New Nest',
-      description: '',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    if (!isInitialized) return;
     
-    setNests(prev => [newNest, ...prev]);
-    setSelectedNestId(newNest.id);
-    toast({
-      title: "New nest created",
-      description: "Organize your domain-specific work!",
-    });
-  }, []);
-
-  const updateNote = useCallback((id: string, updates: Partial<Note>) => {
-    setNotes(prev => prev.map(note => 
-      note.id === id 
-        ? { ...note, ...updates, updatedAt: new Date() }
-        : note
-    ));
-  }, []);
-
-  const deleteNote = useCallback((id: string) => {
-    setNotes(prev => {
-      const noteToDelete = prev.find(note => note.id === id);
-      if (!noteToDelete) return prev;
-
-      // If deleting a folder, also delete all children
-      const toDelete = new Set([id]);
-      if (noteToDelete.type === 'folder') {
-        const addChildrenToDelete = (parentId: string) => {
-          prev.forEach(note => {
-            if (note.parentId === parentId) {
-              toDelete.add(note.id);
-              if (note.type === 'folder') {
-                addChildrenToDelete(note.id);
-              }
-            }
-          });
-        };
-        addChildrenToDelete(id);
-      }
-
-      const filtered = prev.filter(note => !toDelete.has(note.id));
-      
-      // If we deleted the selected note, select the first remaining note
-      if (selectedNoteId === id || toDelete.has(selectedNoteId || '')) {
-        const firstNote = filtered.find(note => note.type === 'note');
-        setSelectedNoteId(firstNote ? firstNote.id : null);
-      }
-      
-      return filtered;
-    });
-    toast({
-      title: "Note deleted",
-      description: "The note has been removed.",
-    });
-  }, [selectedNoteId]);
-
-  const deleteNest = useCallback((id: string) => {
-    // Delete all notes in the nest
-    setNotes(prev => prev.filter(note => note.nestId !== id));
-    
-    // Delete the nest
-    setNests(prev => prev.filter(nest => nest.id !== id));
-    
-    // Clear selection if this nest was selected
-    if (selectedNestId === id) {
-      setSelectedNestId(null);
-      setSelectedNoteId(null);
+    try {
+      const newNest = createNest('New Nest', '');
+      setSelectedNestId(newNest.id);
+      toast({
+        title: "New nest created",
+        description: "Organize your domain-specific work!",
+      });
+    } catch (error) {
+      console.error('Failed to create nest:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create nest.",
+        variant: "destructive"
+      });
     }
+  }, [createNest, isInitialized]);
+
+  const handleUpdateNote = useCallback((id: string, updates: Partial<Note>) => {
+    if (!isInitialized) return;
+    updateNote(id, updates);
+  }, [updateNote, isInitialized]);
+
+  const handleDeleteNote = useCallback((id: string) => {
+    if (!isInitialized) return;
     
-    toast({
-      title: "Nest deleted",
-      description: "The nest and all its contents have been removed.",
-    });
-  }, [selectedNestId]);
+    try {
+      deleteNote(id);
+      
+      // If we deleted the selected note, clear selection
+      if (selectedNoteId === id) {
+        setSelectedNoteId(null);
+      }
+      
+      toast({
+        title: "Note deleted",
+        description: "The note has been removed.",
+      });
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete note.",
+        variant: "destructive"
+      });
+    }
+  }, [deleteNote, selectedNoteId, isInitialized]);
+
+  const handleDeleteNest = useCallback((id: string) => {
+    if (!isInitialized) return;
+    
+    try {
+      deleteNest(id);
+      
+      // Clear selections if this nest was selected
+      if (selectedNestId === id) {
+        setSelectedNestId(null);
+        setSelectedNoteId(null);
+      }
+      
+      toast({
+        title: "Nest deleted",
+        description: "The nest and all its contents have been removed.",
+      });
+    } catch (error) {
+      console.error('Failed to delete nest:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete nest.",
+        variant: "destructive"
+      });
+    }
+  }, [deleteNest, selectedNestId, isInitialized]);
 
   const renameNote = useCallback((id: string, newTitle: string) => {
-    updateNote(id, { title: newTitle });
-  }, [updateNote]);
+    handleUpdateNote(id, { title: newTitle });
+  }, [handleUpdateNote]);
 
   const renameNest = useCallback((id: string, newName: string) => {
-    setNests(prev => prev.map(nest => 
-      nest.id === id 
-        ? { ...nest, name: newName, updatedAt: new Date() }
-        : nest
-    ));
-  }, []);
+    if (!isInitialized) return;
+    updateNest(id, { name: newName });
+  }, [updateNest, isInitialized]);
 
   const toggleFolder = useCallback((id: string) => {
-    setNotes(prev => prev.map(note => 
-      note.id === id && note.type === 'folder'
-        ? { ...note, isExpanded: !note.isExpanded }
-        : note
-    ));
+    // This functionality needs to be implemented in the graph
+    // For now, we'll handle it in the UI state
+    console.log('Toggle folder:', id);
   }, []);
 
   const handleContentChange = useCallback((content: string) => {
-    if (selectedNoteId) {
+    if (selectedNoteId && isInitialized) {
       let title = 'Untitled Note';
       try {
         const jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
@@ -263,12 +247,12 @@ const NotesApp = () => {
         console.warn('Failed to parse content for title extraction:', error);
       }
       
-      updateNote(selectedNoteId, { 
+      handleUpdateNote(selectedNoteId, { 
         content, 
         title: title.substring(0, 100) // Limit title length
       });
     }
-  }, [selectedNoteId, updateNote]);
+  }, [selectedNoteId, handleUpdateNote, isInitialized]);
 
   const handleConnectionsChange = useCallback((connections: ParsedConnections) => {
     if (selectedNoteId) {
@@ -282,7 +266,6 @@ const NotesApp = () => {
     note.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedNote = notes.find(note => note.id === selectedNoteId && note.type === 'note');
   const selectedNoteConnections = selectedNoteId ? noteConnections.get(selectedNoteId) || null : null;
 
   // Keyboard shortcuts
@@ -311,8 +294,8 @@ const NotesApp = () => {
   }, [createNewNote]);
 
   const handleTitleChange = useCallback((noteId: string, newTitle: string) => {
-    updateNote(noteId, { title: newTitle });
-  }, [updateNote]);
+    handleUpdateNote(noteId, { title: newTitle });
+  }, [handleUpdateNote]);
 
   const handleEntityUpdate = useCallback((entityId: string, updates: any) => {
     console.log('Entity updated:', entityId, updates);
@@ -323,92 +306,97 @@ const NotesApp = () => {
     });
   }, []);
 
+  // Show loading while graph initializes
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Initializing...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <NoteProvider
-      selectedNote={selectedNote || null}
-      setSelectedNote={(note) => setSelectedNoteId(note?.id || null)}
-      notes={notes}
-      setNotes={setNotes}
-    >
-      <SidebarProvider>
-        <RightSidebarProvider>
-          <div className="min-h-screen flex w-full bg-background">
-            <NoteSidebar
-              notes={filteredNotes}
-              nests={nests}
-              selectedNoteId={selectedNoteId}
-              selectedNestId={selectedNestId}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onNoteSelect={setSelectedNoteId}
-              onNestSelect={setSelectedNestId}
-              onNewNote={createNewNote}
-              onNewFolder={createNewFolder}
-              onNewNest={createNewNest}
-              onDeleteNote={deleteNote}
-              onDeleteNest={deleteNest}
-              onRenameNote={renameNote}
-              onRenameNest={renameNest}
-              onToggleFolder={toggleFolder}
+    <SidebarProvider>
+      <RightSidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <NoteSidebar
+            notes={filteredNotes}
+            nests={nests}
+            selectedNoteId={selectedNoteId}
+            selectedNestId={selectedNestId}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onNoteSelect={setSelectedNoteId}
+            onNestSelect={setSelectedNestId}
+            onNewNote={createNewNote}
+            onNewFolder={createNewFolder}
+            onNewNest={createNewNest}
+            onDeleteNote={handleDeleteNote}
+            onDeleteNest={handleDeleteNest}
+            onRenameNote={renameNote}
+            onRenameNest={renameNest}
+            onToggleFolder={toggleFolder}
+          />
+          
+          <SidebarInset className="flex flex-col">
+            <NoteHeader 
+              selectedNote={selectedNote} 
+              notes={notes} 
+              onTitleChange={handleTitleChange}
+              isDarkMode={isDarkMode}
+              onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
+              onEntityUpdate={handleEntityUpdate}
             />
-            
-            <SidebarInset className="flex flex-col">
-              <NoteHeader 
-                selectedNote={selectedNote} 
-                notes={notes} 
-                onTitleChange={handleTitleChange}
-                isDarkMode={isDarkMode}
-                onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
-                onEntityUpdate={handleEntityUpdate}
-              />
 
-              <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
-                <div></div>
-                <div className="flex items-center gap-2">
-                  <RightSidebarTrigger />
-                </div>
+            <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
+              <div></div>
+              <div className="flex items-center gap-2">
+                <RightSidebarTrigger />
               </div>
+            </div>
 
-              <div className="flex-1 flex flex-col overflow-hidden">
-                {selectedNote ? (
-                  <>
-                    <div className="flex-1 overflow-hidden p-4">
-                      <RichEditor
-                        content={selectedNote.content}
-                        onChange={handleContentChange}
-                        onConnectionsChange={handleConnectionsChange}
-                        isDarkMode={isDarkMode}
-                      />
-                    </div>
-                    
-                    <ConnectionsPanel
-                      connections={selectedNoteConnections}
-                      isOpen={connectionsPanelOpen}
-                      onToggle={() => setConnectionsPanelOpen(prev => !prev)}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {selectedNote ? (
+                <>
+                  <div className="flex-1 overflow-hidden p-4">
+                    <RichEditor
+                      content={selectedNote.content}
+                      onChange={handleContentChange}
+                      onConnectionsChange={handleConnectionsChange}
+                      isDarkMode={isDarkMode}
                     />
-                  </>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h2 className="text-xl font-semibold mb-2">No note selected</h2>
-                      <p className="text-muted-foreground mb-4">
-                        Select a note from the sidebar or create a new one
-                      </p>
-                      <Button onClick={() => createNewNote()}>
-                        Create New Note
-                      </Button>
-                    </div>
                   </div>
-                )}
-              </div>
-            </SidebarInset>
+                  
+                  <ConnectionsPanel
+                    connections={selectedNoteConnections}
+                    isOpen={connectionsPanelOpen}
+                    onToggle={() => setConnectionsPanelOpen(prev => !prev)}
+                  />
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h2 className="text-xl font-semibold mb-2">No note selected</h2>
+                    <p className="text-muted-foreground mb-4">
+                      Select a note from the sidebar or create a new one
+                    </p>
+                    <Button onClick={() => createNewNote()}>
+                      Create New Note
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </SidebarInset>
 
-            <RightSidebar />
-          </div>
-        </RightSidebarProvider>
-      </SidebarProvider>
-    </NoteProvider>
+          <RightSidebar />
+        </div>
+      </RightSidebarProvider>
+    </SidebarProvider>
   );
 };
 
@@ -425,7 +413,9 @@ const App = () => {
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
-      <NotesApp />
+      <NoteProvider>
+        <NotesApp />
+      </NoteProvider>
     </div>
   );
 };
