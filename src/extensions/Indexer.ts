@@ -21,20 +21,6 @@ export const Indexer = Extension.create({
     };
   },
 
-  // Index once when the editor mounts
-  onCreate() {
-    if (this.storage.noteId) {
-      this.editor.commands.indexCurrentNote();
-    }
-  },
-
-  // Index on every content change (debounced)
-  onUpdate: debounce(function(this: any) {
-    if (this.storage.noteId) {
-      this.editor.commands.indexCurrentNote();
-    }
-  }, 600),
-
   addCommands() {
     return {
       indexCurrentNote: () => ({ editor }) => {
@@ -60,4 +46,21 @@ export const Indexer = Extension.create({
       },
     };
   },
+
+  // Index once when the editor mounts
+  onCreate() {
+    if (this.storage.noteId) {
+      // Use setTimeout to ensure commands are available
+      setTimeout(() => {
+        this.editor.commands.indexCurrentNote();
+      }, 0);
+    }
+  },
+
+  // Index on every content change (debounced)
+  onUpdate: debounce(function(this: any) {
+    if (this.storage.noteId) {
+      this.editor.commands.indexCurrentNote();
+    }
+  }, 600),
 });
