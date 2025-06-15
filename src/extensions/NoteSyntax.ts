@@ -37,7 +37,7 @@ export const NoteSyntax = Extension.create({
           if (!nodeType) return null;
 
           const node = nodeType.create({ subject, predicate, object });
-          const tr = state.tr.replaceRangeWith(range.from, range.to - 1, node);
+          const tr = state.tr.replaceRangeWith(range.from, range.to, node);
           return tr;
         },
       }),
@@ -54,7 +54,7 @@ export const NoteSyntax = Extension.create({
             label: match[2],
             attributes: match[3] ? JSON.parse(match[3]) : undefined,
           });
-          const tr = state.tr.replaceRangeWith(range.from, range.to - 1, node);
+          const tr = state.tr.replaceRangeWith(range.from, range.to, node);
           return tr;
         },
       }),
@@ -67,7 +67,7 @@ export const NoteSyntax = Extension.create({
           if (!nodeType) return null;
 
           const node = nodeType.create({ tag: match[1] });
-          const tr = state.tr.replaceRangeWith(range.from, range.to - 1, node);
+          const tr = state.tr.replaceRangeWith(range.from, range.to, node);
           return tr;
         },
       }),
@@ -111,7 +111,7 @@ export const NoteSyntax = Extension.create({
           if (!nodeType) return null;
 
           const node = nodeType.create({ target: match[1] });
-          const tr = state.tr.replaceRangeWith(range.from, range.to - 1, node);
+          const tr = state.tr.replaceRangeWith(range.from, range.to, node);
           return tr;
         },
       }),
