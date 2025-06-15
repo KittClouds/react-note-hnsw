@@ -5,7 +5,9 @@ import { semanticSearchService } from '@/lib/embedding/SemanticSearchService';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    indexCurrentNote: () => ReturnType;
+    indexer: {
+      indexCurrentNote: () => ReturnType;
+    };
   }
 }
 
@@ -27,7 +29,7 @@ export const Indexer = Extension.create({
     };
   },
 
-  addCommands(): Partial<RawCommands> {
+  addCommands() {
     return {
       indexCurrentNote: () => ({ editor }) => {
         const noteId = this.options.getId(editor);
