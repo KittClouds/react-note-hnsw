@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '@livestore/react';
 import { useEntityAttributes, useBlueprintsArray } from '@/hooks/useLiveStore';
 import { events } from '@/livestore/schema';
-import { Entity } from '@/utils/parsingUtils';
+import { Entity } from '@/lib/utils/parsingUtils';
 import { ClusterEntity } from './useActiveClusterEntities';
 import { AttributeEditor } from './AttributeEditor';
 import { TypedAttribute, AttributeType, AttributeValue } from '@/types/attributes';
@@ -60,14 +59,15 @@ export function EntityCard({ entity, viewMode }: EntityCardProps) {
         // Add missing blueprint attributes
         const missingBlueprintAttrs = blueprint.templates
           .filter(template => !existingAttributeNames.has(template.name))
-          .map(template => ({
+          .map((template): TypedAttribute => ({
             id: `blueprint-${entity.kind}-${entity.label}-${template.name}-${Date.now()}`,
             name: template.name,
             type: template.type,
             value: template.defaultValue || getDefaultValueForType(template.type),
+            unit: template.unit,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
-          } as TypedAttribute));
+          }));
 
         // Sort attributes: blueprint first (in blueprint order), then custom
         const blueprintAttrs = blueprint.templates.map(template => 

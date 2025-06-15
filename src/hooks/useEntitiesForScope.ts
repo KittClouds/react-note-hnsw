@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useActiveClusterEntities, ClusterEntity } from '@/components/entity-manager/useActiveClusterEntities';
 import { useActiveNoteConnections } from './useLiveStore';
-import { Entity } from '@/utils/parsingUtils';
+import { Entity } from '@/lib/utils/parsingUtils';
 
 export type EntityScope = 'note' | 'folder' | 'cluster' | 'vault';
 
@@ -22,7 +22,7 @@ export function useEntitiesForScope() {
     }
   }, [scope]);
 
-  const entities = useMemo(() => {
+  const entities: (Entity | ClusterEntity)[] = useMemo(() => {
     switch (scope) {
       case 'note':
         return noteEntities;
@@ -45,7 +45,7 @@ export function useEntitiesForScope() {
       }
       acc[kind].push(entity);
       return acc;
-    }, {} as Record<string, (Entity[] | ClusterEntity[])>);
+    }, {} as Record<string, (Entity | ClusterEntity)[]>);
   }, [entities]);
 
   return {
