@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
 import { Note } from '@/types/note';
 
 interface NoteContextType {
@@ -19,31 +19,30 @@ export function useNoteContext() {
   return context;
 }
 
-export function NoteProvider({ children }: { children: React.ReactNode }) {
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [notes, setNotes] = useState<Note[]>([]);
+interface NoteProviderProps {
+  children: React.ReactNode;
+  selectedNote: Note | null;
+  setSelectedNote: (note: Note | null) => void;
+  notes: Note[];
+  setNotes: (notes: Note[]) => void;
+}
 
-  useEffect(() => {
-    const savedNotes = localStorage.getItem('notes');
-    if (savedNotes) {
-      const parsedNotes = JSON.parse(savedNotes).map((note: any) => ({
-        ...note,
-        type: note.type || 'note',
-        createdAt: new Date(note.createdAt),
-        updatedAt: new Date(note.updatedAt)
-      }));
-      setNotes(parsedNotes);
-      
-      // Select the first note if available
-      const firstNote = parsedNotes.find((note: Note) => note.type === 'note');
-      if (firstNote) {
-        setSelectedNote(firstNote);
-      }
-    }
-  }, []);
+export function NoteProvider({ 
+  children, 
+  selectedNote, 
+  setSelectedNote, 
+  notes, 
+  setNotes 
+}: NoteProviderProps) {
+  const contextValue = {
+    selectedNote,
+    setSelectedNote,
+    notes,
+    setNotes,
+  };
 
   return (
-    <NoteContext.Provider value={{ selectedNote, setSelectedNote, notes, setNotes }}>
+    <NoteContext.Provider value={contextValue}>
       {children}
     </NoteContext.Provider>
   );

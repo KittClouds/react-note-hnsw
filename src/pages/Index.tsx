@@ -323,84 +323,91 @@ const NotesApp = () => {
   }, []);
 
   return (
-    <SidebarProvider>
-      <RightSidebarProvider>
-        <div className="min-h-screen flex w-full bg-background">
-          <NoteSidebar
-            notes={filteredNotes}
-            nests={nests}
-            selectedNoteId={selectedNoteId}
-            selectedNestId={selectedNestId}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onNoteSelect={setSelectedNoteId}
-            onNestSelect={setSelectedNestId}
-            onNewNote={createNewNote}
-            onNewFolder={createNewFolder}
-            onNewNest={createNewNest}
-            onDeleteNote={deleteNote}
-            onDeleteNest={deleteNest}
-            onRenameNote={renameNote}
-            onRenameNest={renameNest}
-            onToggleFolder={toggleFolder}
-          />
-          
-          <SidebarInset className="flex flex-col">
-            <NoteHeader 
-              selectedNote={selectedNote} 
-              notes={notes} 
-              onTitleChange={handleTitleChange}
-              isDarkMode={isDarkMode}
-              onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
-              onEntityUpdate={handleEntityUpdate}
+    <NoteProvider
+      selectedNote={selectedNote || null}
+      setSelectedNote={(note) => setSelectedNoteId(note?.id || null)}
+      notes={notes}
+      setNotes={setNotes}
+    >
+      <SidebarProvider>
+        <RightSidebarProvider>
+          <div className="min-h-screen flex w-full bg-background">
+            <NoteSidebar
+              notes={filteredNotes}
+              nests={nests}
+              selectedNoteId={selectedNoteId}
+              selectedNestId={selectedNestId}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onNoteSelect={setSelectedNoteId}
+              onNestSelect={setSelectedNestId}
+              onNewNote={createNewNote}
+              onNewFolder={createNewFolder}
+              onNewNest={createNewNest}
+              onDeleteNote={deleteNote}
+              onDeleteNest={deleteNest}
+              onRenameNote={renameNote}
+              onRenameNest={renameNest}
+              onToggleFolder={toggleFolder}
             />
+            
+            <SidebarInset className="flex flex-col">
+              <NoteHeader 
+                selectedNote={selectedNote} 
+                notes={notes} 
+                onTitleChange={handleTitleChange}
+                isDarkMode={isDarkMode}
+                onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
+                onEntityUpdate={handleEntityUpdate}
+              />
 
-            <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
-              <div></div>
-              <div className="flex items-center gap-2">
-                <RightSidebarTrigger />
-              </div>
-            </div>
-
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {selectedNote ? (
-                <>
-                  <div className="flex-1 overflow-hidden p-4">
-                    <RichEditor
-                      content={selectedNote.content}
-                      onChange={handleContentChange}
-                      onConnectionsChange={handleConnectionsChange}
-                      isDarkMode={isDarkMode}
-                    />
-                  </div>
-                  
-                  <ConnectionsPanel
-                    connections={selectedNoteConnections}
-                    isOpen={connectionsPanelOpen}
-                    onToggle={() => setConnectionsPanelOpen(prev => !prev)}
-                  />
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h2 className="text-xl font-semibold mb-2">No note selected</h2>
-                    <p className="text-muted-foreground mb-4">
-                      Select a note from the sidebar or create a new one
-                    </p>
-                    <Button onClick={() => createNewNote()}>
-                      Create New Note
-                    </Button>
-                  </div>
+              <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
+                <div></div>
+                <div className="flex items-center gap-2">
+                  <RightSidebarTrigger />
                 </div>
-              )}
-            </div>
-          </SidebarInset>
+              </div>
 
-          <RightSidebar />
-        </div>
-      </RightSidebarProvider>
-    </SidebarProvider>
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {selectedNote ? (
+                  <>
+                    <div className="flex-1 overflow-hidden p-4">
+                      <RichEditor
+                        content={selectedNote.content}
+                        onChange={handleContentChange}
+                        onConnectionsChange={handleConnectionsChange}
+                        isDarkMode={isDarkMode}
+                      />
+                    </div>
+                    
+                    <ConnectionsPanel
+                      connections={selectedNoteConnections}
+                      isOpen={connectionsPanelOpen}
+                      onToggle={() => setConnectionsPanelOpen(prev => !prev)}
+                    />
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h2 className="text-xl font-semibold mb-2">No note selected</h2>
+                      <p className="text-muted-foreground mb-4">
+                        Select a note from the sidebar or create a new one
+                      </p>
+                      <Button onClick={() => createNewNote()}>
+                        Create New Note
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SidebarInset>
+
+            <RightSidebar />
+          </div>
+        </RightSidebarProvider>
+      </SidebarProvider>
+    </NoteProvider>
   );
 };
 
@@ -417,9 +424,7 @@ const App = () => {
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
-      <NoteProvider>
-        <NotesApp />
-      </NoteProvider>
+      <NotesApp />
     </div>
   );
 };
