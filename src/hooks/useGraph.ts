@@ -5,7 +5,7 @@ import { Note, Nest } from '@/types/note';
 
 // Create a simple interface wrapper for the Graph class
 class GraphInterface {
-  constructor(private graph: Graph) {}
+  constructor(public graph: Graph) {}
 
   initialize() {
     // Create root structure if not exists
@@ -135,15 +135,11 @@ class GraphInterface {
   moveNote(noteId: string, newParentId: string | null) {
     this.graph.move(noteId, { parent: newParentId });
   }
-
-  get graph() {
-    return this.graph;
-  }
 }
 
 export function useGraph() {
-  const [graph] = useState(() => new Graph());
-  const [graphInterface] = useState(() => new GraphInterface(graph));
+  const [graphInstance] = useState(() => new Graph());
+  const [graphInterface] = useState(() => new GraphInterface(graphInstance));
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Initialize graph with existing data from localStorage
@@ -226,7 +222,7 @@ export function useGraph() {
   }, [graphInterface]);
 
   return {
-    graph,
+    graph: graphInstance,
     graphInterface,
     isInitialized
   };
