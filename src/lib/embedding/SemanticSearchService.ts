@@ -1,4 +1,3 @@
-
 import { Note } from '@/types/note';
 import { embeddingService } from './EmbeddingService';
 import { HNSW } from './hnsw';
@@ -104,7 +103,7 @@ class SemanticSearchService {
 
     console.log('Building HNSW index for', this.embeddings.size, 'embeddings');
     
-    this.hnswIndex = new HNSW(16, 200, null, 'cosine');
+    this.hnswIndex = new HNSW(16, 200, 'cosine');
     
     const indexData: { id: number; vector: Float32Array }[] = [];
     let idCounter = 0;
