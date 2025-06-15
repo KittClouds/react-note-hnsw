@@ -169,33 +169,20 @@ const RightSidebar = React.forwardRef<
     return (
       <div
         ref={ref}
-        className="group peer-right hidden md:block text-sidebar-foreground"
+        className={cn(
+          "group peer-right hidden md:block text-sidebar-foreground transition-[width] duration-200 ease-linear",
+          state === "collapsed" && collapsible === "offcanvas" ? "w-0" : "w-[--right-sidebar-width]",
+          "h-full bg-sidebar border-l border-sidebar-border",
+          className
+        )}
         data-state={state}
         data-collapsible={state === "collapsed" ? collapsible : ""}
         data-variant={variant}
         data-side="right"
+        {...props}
       >
-        <div
-          className={cn(
-            "duration-200 relative h-svh w-[--right-sidebar-width] bg-transparent transition-[width] ease-linear",
-            "group-data-[collapsible=offcanvas]:w-0"
-          )}
-        />
-        <div
-          className={cn(
-            "duration-200 fixed inset-y-0 z-10 hidden h-svh w-[--right-sidebar-width] transition-[left,right,width] ease-linear md:flex",
-            "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--right-sidebar-width)*-1)]",
-            "group-data-[side=right]:border-l",
-            className
-          )}
-          {...props}
-        >
-          <div
-            data-sidebar="right-sidebar"
-            className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
-          >
-            {children}
-          </div>
+        <div className="flex h-full w-full flex-col">
+          {children}
         </div>
       </div>
     )
