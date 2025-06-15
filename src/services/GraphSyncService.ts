@@ -167,8 +167,8 @@ export class GraphSyncService {
     // Check for timestamp conflicts
     for (const note of notes) {
       const graphNode = graphNodes.find(node => node.id === note.id);
-      if (graphNode && graphNode.data.updatedAt) {
-        const graphTime = new Date(graphNode.data.updatedAt).getTime();
+      if (graphNode && graphNode.updatedAt) {
+        const graphTime = new Date(graphNode.updatedAt).getTime();
         const localTime = note.updatedAt.getTime();
         
         if (Math.abs(graphTime - localTime) > 1000) { // More than 1 second difference
@@ -259,22 +259,22 @@ export class GraphSyncService {
     // Convert graph nodes back to Note/Nest format
     const notes: Note[] = graphNotes.map(node => ({
       id: node.id,
-      title: node.data.title || 'Untitled',
-      content: node.data.content || '',
-      type: node.data.type || 'note',
-      parentId: node.data.parentId || null,
-      nestId: node.data.nestId || null,
-      isExpanded: node.data.isExpanded || false,
-      createdAt: new Date(node.data.createdAt || Date.now()),
-      updatedAt: new Date(node.data.updatedAt || Date.now())
+      title: node.title || 'Untitled',
+      content: node.content || '',
+      type: node.type || 'note',
+      parentId: node.parentId || null,
+      nestId: node.nestId || null,
+      isExpanded: node.isExpanded || false,
+      createdAt: new Date(node.createdAt || Date.now()),
+      updatedAt: new Date(node.updatedAt || Date.now())
     }));
 
     const nests: Nest[] = graphNests.map(node => ({
       id: node.id,
-      name: node.data.name || 'Untitled Nest',
-      description: node.data.description || '',
-      createdAt: new Date(node.data.createdAt || Date.now()),
-      updatedAt: new Date(node.data.updatedAt || Date.now())
+      name: node.name || 'Untitled Nest',
+      description: node.description || '',
+      createdAt: new Date(node.createdAt || Date.now()),
+      updatedAt: new Date(node.updatedAt || Date.now())
     }));
 
     // Update localStorage

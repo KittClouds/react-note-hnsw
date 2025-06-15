@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Database, Sync, AlertTriangle } from 'lucide-react';
+import { Database, arrow-right, circle-arrow-right } from 'lucide-react';
 
 interface GraphSyncControlsProps {
   syncService: any;
@@ -138,11 +138,11 @@ export function GraphSyncControls({
         {/* Actions */}
         <div className="flex gap-2">
           <Button onClick={forceSync} variant="outline">
-            <Sync className="h-4 w-4 mr-2" />
+            <circle-arrow-right className="h-4 w-4 mr-2" />
             Force Sync
           </Button>
           <Button onClick={handleValidation} variant="outline">
-            <AlertTriangle className="h-4 w-4 mr-2" />
+            <circle-check className="h-4 w-4 mr-2" />
             Validate Sync
           </Button>
         </div>
