@@ -16,13 +16,6 @@ import { NoteProvider } from '@/contexts/NoteContext';
 import { useGraph } from '@/hooks/useGraph';
 import { useGraphSync } from '@/hooks/useGraphSync';
 import { GraphSyncControls } from '@/components/GraphSyncControls';
-import NoteHeader from '@/components/NoteHeader';
-import ConnectionsPanel from '@/components/ConnectionsPanel';
-import RightSidebar from '@/components/RightSidebar';
-import { RightSidebarProvider, RightSidebarTrigger } from '@/components/RightSidebarProvider';
-import { useNoteTabs } from '@/hooks/useNoteTabs';
-import TabManager from '@/components/TabManager';
-import EditorContainer from '@/components/EditorContainer';
 
 const DEFAULT_CONTENT = JSON.stringify({
   type: 'doc',
@@ -38,6 +31,10 @@ const DEFAULT_CONTENT = JSON.stringify({
     }
   ]
 });
+import NoteHeader from '@/components/NoteHeader';
+import ConnectionsPanel from '@/components/ConnectionsPanel';
+import RightSidebar from '@/components/RightSidebar';
+import { RightSidebarProvider, RightSidebarTrigger } from '@/components/RightSidebarProvider';
 
 const NotesApp = () => {
   const [notes, setNotes] = useState<Note[]>([]);

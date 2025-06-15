@@ -1,17 +1,12 @@
 
 import React, { createContext, useContext } from 'react';
 import { Note } from '@/types/note';
-import { ParsedConnections } from '@/utils/parsingUtils';
 
 interface NoteContextType {
   selectedNote: Note | null;
   setSelectedNote: (note: Note | null) => void;
   notes: Note[];
   setNotes: (notes: Note[]) => void;
-  // New multi-tab related fields
-  activeNotes: Map<string, Note>;
-  noteConnections: Map<string, ParsedConnections>;
-  updateNoteConnections: (noteId: string, connections: ParsedConnections) => void;
 }
 
 const NoteContext = createContext<NoteContextType | undefined>(undefined);
@@ -30,9 +25,6 @@ interface NoteProviderProps {
   setSelectedNote: (note: Note | null) => void;
   notes: Note[];
   setNotes: (notes: Note[]) => void;
-  activeNotes?: Map<string, Note>;
-  noteConnections?: Map<string, ParsedConnections>;
-  updateNoteConnections?: (noteId: string, connections: ParsedConnections) => void;
 }
 
 export function NoteProvider({ 
@@ -40,19 +32,13 @@ export function NoteProvider({
   selectedNote, 
   setSelectedNote, 
   notes, 
-  setNotes,
-  activeNotes = new Map(),
-  noteConnections = new Map(),
-  updateNoteConnections = () => {}
+  setNotes 
 }: NoteProviderProps) {
   const contextValue = {
     selectedNote,
     setSelectedNote,
     notes,
     setNotes,
-    activeNotes,
-    noteConnections,
-    updateNoteConnections,
   };
 
   return (
