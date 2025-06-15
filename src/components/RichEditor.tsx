@@ -56,6 +56,12 @@ import { Excalidraw } from 'reactjs-tiptap-editor/excalidraw';
 import { Twitter } from 'reactjs-tiptap-editor/twitter';
 import { Mermaid } from 'reactjs-tiptap-editor/mermaid';
 import { WikiLink } from '@/extensions/WikiLink';
+import { Tag } from '@/extensions/Tag';
+import { Backlink } from '@/extensions/Backlink';
+import { Entity } from '@/extensions/Entity';
+import { Triple } from '@/extensions/Triple';
+import { NoteSyntax } from '@/extensions/NoteSyntax';
+import { Connections } from '@/extensions/Connections';
 
 // Import CSS
 import 'reactjs-tiptap-editor/style.css';
@@ -74,6 +80,7 @@ import { Backlink } from '@/extensions/Backlink';
 import { Entity } from '@/extensions/Entity';
 import { Triple } from '@/extensions/Triple';
 import { NoteSyntax } from '@/extensions/NoteSyntax';
+import { Connections } from '@/extensions/Connections';
 
 interface RichEditorProps {
   content: string;
@@ -122,6 +129,9 @@ const extensions = [
   
   // Add input rules extension
   NoteSyntax,
+  
+  // Add connections extension for real-time parsing
+  Connections,
   
   History,
   SearchAndReplace,
@@ -259,46 +269,39 @@ const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: Rich
     }
   }, [content]);
 
-  // Parse connections when content changes
+  // Subscribe to connections updates from the extension
   useEffect(() => {
-    if (onConnectionsChange && editorInstance) {
-      try {
-        // Get the current JSON from the editor
-        const currentJSON = editorInstance.getJSON();
-        const connections = parseNoteConnections(currentJSON);
-        onConnectionsChange(connections);
-      } catch (error) {
-        console.warn('Failed to parse connections from editor content:', error);
-      }
-    }
-  }, [editorContent, onConnectionsChange, editorInstance]);
+    if (!editorInstance || !onConnectionsChange) return;
 
-  const onValueChange = useCallback(
-    debounce((value: any, editor: any) => {
-      setEditorContent(value);
-      
-      // Store the editor instance for connection parsing
-      if (!editorInstance) {
-        setEditorInstance(editor);
-      }
-      
-      // Parse connections from the current editor JSON
-      if (onConnectionsChange && editor) {
-        try {
-          const currentJSON = editor.getJSON();
-          const connections = parseNoteConnections(currentJSON);
-          onConnectionsChange(connections);
-        } catch (error) {
-          console.warn('Failed to parse connections:', error);
-        }
-      }
-      
-      // Convert to JSON string for storage
-      const jsonString = typeof value === 'string' ? value : JSON.stringify(value);
-      onChange(jsonString);
-    }, 300),
-    [onChange, onConnectionsChange, editorInstance],
-  );
+    const handleConnectionsUpdate = (connections: ParsedConnections) => {
+      onConnectionsChange(connections);
+    };
+
+    // Subscribe to the connections update event
+    editorInstance.on('connectionsUpdate', handleConnectionsUpdate);
+
+    // Fire once at mount with current storage
+    if (editorInstance.storage.connections) {
+      onConnectionsChange(editorInstance.storage.connections);
+    }
+
+    return () => {
+      editorInstance.off('connectionsUpdate', handleConnectionsUpdate);
+    };
+  }, [editorInstance, onConnectionsChange]);
+
+  const onValueChange = useCallback((value: any, editor: any) => {
+    setEditorContent(value);
+    
+    // Store the editor instance for connection parsing
+    if (!editorInstance) {
+      setEditorInstance(editor);
+    }
+    
+    // Convert to JSON string for storage
+    const jsonString = typeof value === 'string' ? value : JSON.stringify(value);
+    onChange(jsonString);
+  }, [onChange, editorInstance]);
 
   return (
     <div className="h-full flex flex-col">
