@@ -1,4 +1,5 @@
 
+
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { parseNoteConnections, ParsedConnections } from '@/utils/parsingUtils';
@@ -51,22 +52,5 @@ export const Connections = Extension.create({
         },
       }),
     ];
-  },
-
-  onCreate() {
-    // Add event listener methods to the editor
-    this.editor.connectionsOn = (eventName: string, handler: Function) => {
-      if (eventName === 'connectionsUpdate') {
-        this.editor.view.dom.addEventListener('connectionsUpdate', (e: any) => {
-          handler(e.detail);
-        });
-      }
-    };
-
-    this.editor.connectionsOff = (eventName: string, handler: Function) => {
-      if (eventName === 'connectionsUpdate') {
-        this.editor.view.dom.removeEventListener('connectionsUpdate', handler);
-      }
-    };
   },
 });

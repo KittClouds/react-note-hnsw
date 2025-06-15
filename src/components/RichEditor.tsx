@@ -1,4 +1,3 @@
-
 import { useCallback, useState, useEffect } from 'react';
 import RichTextEditor, { BaseKit } from 'reactjs-tiptap-editor';
 import { locale } from 'reactjs-tiptap-editor/locale-bundle';
@@ -257,12 +256,12 @@ const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: Rich
   useEffect(() => {
     if (!editorInstance || !onConnectionsChange) return;
 
-    const handleConnectionsUpdate = (connections: ParsedConnections) => {
-      onConnectionsChange(connections);
+    const handleConnectionsUpdate = (event: CustomEvent) => {
+      onConnectionsChange(event.detail);
     };
 
-    // Subscribe to the connections update event
-    editorInstance.on('connectionsUpdate', handleConnectionsUpdate);
+    // Subscribe to the connections update event on the editor's DOM element
+    editorInstance.view.dom.addEventListener('connectionsUpdate', handleConnectionsUpdate);
 
     // Fire once at mount with current storage
     if (editorInstance.storage.connections) {
@@ -270,7 +269,7 @@ const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: Rich
     }
 
     return () => {
-      editorInstance.off('connectionsUpdate', handleConnectionsUpdate);
+      editorInstance.view.dom.removeEventListener('connectionsUpdate', handleConnectionsUpdate);
     };
   }, [editorInstance, onConnectionsChange]);
 
@@ -292,7 +291,11 @@ const RichEditor = ({ content, onChange, isDarkMode, onConnectionsChange }: Rich
         output="json"
         content={editorContent as any}
         onChangeContent={onValueChange}
-        onCreated={onEditorCreate}
+        ref={(editorRef: any) => {
+          if (editorRef?.editor && !editorInstance) {
+            setEditorInstance(editorRef.editor);
+          }
+        }}
         extensions={extensions}
         dark={isDarkMode}
         minHeight="400px"
