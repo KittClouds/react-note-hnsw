@@ -74,7 +74,9 @@ class SemanticSearchService {
     return this.embeddings.size;
   }
 
-  private async syncNote(note: Note) {
+  async syncNote(note: Note | { id: string; title: string; content: string; type: 'note'; updatedAt: Date }) {
+    await this.initialize();
+    
     const existing = this.embeddings.get(note.id);
     const noteUpdatedAt = note.updatedAt.getTime();
     
@@ -94,6 +96,9 @@ class SemanticSearchService {
         content: this.extractTextFromContent(note.content),
         updatedAt: noteUpdatedAt
       });
+
+      // Save to storage immediately for single note updates
+      this.saveEmbeddingsToStorage();
     } catch (error) {
       console.error(`Failed to generate embedding for note ${note.id}:`, error);
     }

@@ -62,6 +62,8 @@ import { Entity } from '@/extensions/Entity';
 import { Triple } from '@/extensions/Triple';
 import { NoteSyntax } from '@/extensions/NoteSyntax';
 import { Connections } from '@/extensions/Connections';
+import { Indexer } from '@/extensions/Indexer';
+import { SearchCommand } from '@/extensions/SearchCommand';
 
 // Import CSS
 import 'reactjs-tiptap-editor/style.css';
@@ -115,6 +117,10 @@ const extensions = [
   
   // Add connections extension for real-time parsing
   Connections,
+
+  // Add indexing and search extensions
+  Indexer,
+  SearchCommand,
   
   History,
   SearchAndReplace,

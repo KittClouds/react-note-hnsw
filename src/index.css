@@ -101,3 +101,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Search palette styles */
+.search-palette {
+  z-index: 9999;
+}
+
+.search-palette .tippy-content {
+  padding: 0;
+  border-radius: 0.5rem;
+}
