@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -315,6 +314,15 @@ const NotesApp = () => {
     updateNote(noteId, { title: newTitle });
   }, [updateNote]);
 
+  const handleEntityUpdate = useCallback((entityId: string, updates: any) => {
+    console.log('Entity updated:', entityId, updates);
+    // TODO: Implement entity persistence logic here
+    toast({
+      title: "Entity updated",
+      description: `Entity ${entityId} has been modified.`,
+    });
+  }, []);
+
   return (
     <div className={isDarkMode ? 'dark' : ''}>
       <SidebarProvider>
@@ -395,7 +403,11 @@ const NotesApp = () => {
               </div>
             </SidebarInset>
 
-            <RightSidebar />
+            <RightSidebar 
+              selectedNote={selectedNote}
+              notes={notes}
+              onEntityUpdate={handleEntityUpdate}
+            />
           </div>
         </RightSidebarProvider>
       </SidebarProvider>

@@ -1,5 +1,5 @@
 
-import { FileText } from 'lucide-react';
+import { Database } from 'lucide-react';
 import {
   SidebarContent,
   SidebarHeader,
@@ -7,26 +7,33 @@ import {
   SidebarGroupContent,
 } from "@/components/ui/sidebar";
 import { RightSidebar as RightSidebarWrapper } from './RightSidebarProvider';
+import { EntityManager } from './EntityManager';
+import { Note } from '@/types/note';
 
-const RightSidebar = () => {
+interface RightSidebarProps {
+  selectedNote?: Note | null;
+  notes?: Note[];
+  onEntityUpdate?: (entityId: string, updates: any) => void;
+}
+
+const RightSidebar = ({ selectedNote = null, notes = [], onEntityUpdate }: RightSidebarProps) => {
   return (
     <RightSidebarWrapper className="border-l border-border/50 backdrop-blur-sm">
       <SidebarHeader className="p-4 border-b border-border/50">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-foreground">Properties</h2>
+        <div className="flex items-center gap-2">
+          <Database className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">Entities</h2>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="overflow-auto">
+      <SidebarContent className="overflow-auto p-0">
         <SidebarGroup>
           <SidebarGroupContent>
-            <div className="p-8 text-center">
-              <div className="text-muted-foreground">
-                <FileText size={48} className="mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium mb-2">Coming Soon</p>
-                <p className="text-sm">Note properties and metadata will appear here.</p>
-              </div>
-            </div>
+            <EntityManager
+              selectedNote={selectedNote}
+              notes={notes}
+              onEntityUpdate={onEntityUpdate}
+            />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
