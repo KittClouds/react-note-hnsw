@@ -1,7 +1,13 @@
 
-import { Extension } from '@tiptap/core';
+import { Extension, RawCommands } from '@tiptap/core';
 import debounce from 'lodash.debounce';
 import { semanticSearchService } from '@/lib/embedding/SemanticSearchService';
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    indexCurrentNote: () => ReturnType;
+  }
+}
 
 export const Indexer = Extension.create({
   name: 'indexer',
@@ -21,7 +27,7 @@ export const Indexer = Extension.create({
     };
   },
 
-  addCommands() {
+  addCommands(): Partial<RawCommands> {
     return {
       indexCurrentNote: () => ({ editor }) => {
         const noteId = this.options.getId(editor);
