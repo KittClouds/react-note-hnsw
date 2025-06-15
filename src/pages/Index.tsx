@@ -13,6 +13,8 @@ import NoteSidebar from '@/components/NoteSidebar';
 import { ParsedConnections } from '@/utils/parsingUtils';
 import { Note, Nest } from '@/types/note';
 import { NoteProvider } from '@/contexts/NoteContext';
+import { useGraph } from '@/hooks/useGraph';
+import { useGraphSync } from '@/hooks/useGraphSync';
 
 const DEFAULT_CONTENT = JSON.stringify({
   type: 'doc',
@@ -100,6 +102,12 @@ const NotesApp = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  // Add graph initialization
+  const { graph, isInitialized: graphInitialized } = useGraph();
+  
+  // Add graph sync with the actual graph instance
+  const { syncService, forceSync, getSyncStatus, validateSync } = useGraphSync(graph);
 
   const createNewNote = useCallback((parentId?: string, nestId?: string) => {
     const newNote: Note = {
@@ -322,6 +330,25 @@ const NotesApp = () => {
       description: `Entity ${entityId} has been modified.`,
     });
   }, []);
+
+  // Add sync status logging for debugging (can be removed later)
+  useEffect(() => {
+    if (syncService && graphInitialized) {
+      console.log('Graph and sync service both ready');
+      
+      // Optional: Log sync status periodically for debugging
+      const interval = setInterval(() => {
+        const status = getSyncStatus();
+        const validation = validateSync();
+        console.log('Sync status:', status);
+        if (!validation?.isValid) {
+          console.warn('Sync validation issues:', validation?.mismatches);
+        }
+      }, 15000); // Log every 15 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [syncService, graphInitialized, getSyncStatus, validateSync]);
 
   return (
     <NoteProvider
