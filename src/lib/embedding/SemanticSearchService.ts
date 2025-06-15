@@ -1,6 +1,7 @@
 
 import { Note } from '@/types/note';
 import { embeddingService } from './EmbeddingService';
+import { HNSW } from './hnsw';
 
 export interface SearchResult {
   noteId: string;
@@ -19,7 +20,9 @@ interface EmbeddingData {
 
 class SemanticSearchService {
   private embeddings = new Map<string, EmbeddingData>();
+  private hnswIndex: HNSW | null = null;
   private isInitialized = false;
+  private indexNeedsRebuild = false;
 
   async initialize() {
     if (this.isInitialized) return;
@@ -27,6 +30,7 @@ class SemanticSearchService {
     try {
       await embeddingService.ready();
       this.loadEmbeddingsFromStorage();
+      await this.loadHNSWIndexFromStorage();
       this.isInitialized = true;
     } catch (error) {
       console.error('Failed to initialize semantic search:', error);
@@ -62,6 +66,66 @@ class SemanticSearchService {
     localStorage.setItem('note-embeddings', JSON.stringify(serializable));
   }
 
+  private async loadHNSWIndexFromStorage() {
+    const stored = localStorage.getItem('hnsw-index');
+    if (stored && this.embeddings.size > 0) {
+      try {
+        const parsed = JSON.parse(stored);
+        this.hnswIndex = HNSW.fromJSON(parsed);
+        
+        // Verify index is still valid (same number of nodes as embeddings)
+        if (this.hnswIndex.nodes.size !== this.embeddings.size) {
+          console.log('HNSW index size mismatch, will rebuild');
+          this.indexNeedsRebuild = true;
+          this.hnswIndex = null;
+        }
+      } catch (error) {
+        console.warn('Failed to load HNSW index from storage:', error);
+        this.indexNeedsRebuild = true;
+      }
+    } else if (this.embeddings.size > 0) {
+      this.indexNeedsRebuild = true;
+    }
+  }
+
+  private async saveHNSWIndexToStorage() {
+    if (this.hnswIndex) {
+      try {
+        const serialized = this.hnswIndex.toJSON();
+        localStorage.setItem('hnsw-index', JSON.stringify(serialized));
+      } catch (error) {
+        console.warn('Failed to save HNSW index to storage:', error);
+      }
+    }
+  }
+
+  private async buildHNSWIndex() {
+    if (this.embeddings.size === 0) return;
+
+    console.log('Building HNSW index for', this.embeddings.size, 'embeddings');
+    
+    this.hnswIndex = new HNSW(16, 200, null, 'cosine');
+    
+    const indexData: { id: number; vector: Float32Array }[] = [];
+    let idCounter = 0;
+    const idMapping = new Map<number, string>();
+    
+    this.embeddings.forEach((embedding, noteId) => {
+      idMapping.set(idCounter, noteId);
+      indexData.push({ id: idCounter, vector: embedding.vector });
+      idCounter++;
+    });
+    
+    await this.hnswIndex.buildIndex(indexData);
+    this.indexNeedsRebuild = false;
+    
+    // Store the ID mapping for search results
+    (this.hnswIndex as any).idMapping = idMapping;
+    
+    await this.saveHNSWIndexToStorage();
+    console.log('HNSW index built successfully');
+  }
+
   async syncAllNotes(notes: Note[]): Promise<number> {
     await this.initialize();
     
@@ -70,6 +134,10 @@ class SemanticSearchService {
     
     await Promise.all(syncPromises);
     this.saveEmbeddingsToStorage();
+    
+    // Rebuild HNSW index after bulk sync
+    this.indexNeedsRebuild = true;
+    await this.ensureHNSWIndex();
     
     return this.embeddings.size;
   }
@@ -96,6 +164,9 @@ class SemanticSearchService {
         content: this.extractTextFromContent(note.content),
         updatedAt: noteUpdatedAt
       });
+
+      // Mark that HNSW index needs rebuilding
+      this.indexNeedsRebuild = true;
 
       // Save to storage immediately for single note updates
       this.saveEmbeddingsToStorage();
@@ -131,6 +202,37 @@ class SemanticSearchService {
     return text.trim();
   }
 
+  private async ensureHNSWIndex() {
+    if (!this.hnswIndex || this.indexNeedsRebuild) {
+      await this.buildHNSWIndex();
+    }
+  }
+
+  private fallbackLinearSearch(query: string, queryVector: Float32Array, limit: number): SearchResult[] {
+    console.log('Using fallback linear search');
+    const similarities: { noteId: string; score: number; title: string; content: string }[] = [];
+    
+    this.embeddings.forEach((embedding) => {
+      const similarity = this.cosineSimilarity(queryVector, embedding.vector);
+      similarities.push({
+        noteId: embedding.id,
+        score: similarity,
+        title: embedding.title,
+        content: embedding.content
+      });
+    });
+    
+    return similarities
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(item => ({
+        noteId: item.noteId,
+        title: item.title,
+        content: item.content,
+        score: item.score
+      }));
+  }
+
   async search(query: string, limit: number = 10): Promise<SearchResult[]> {
     if (!this.isInitialized) {
       await this.initialize();
@@ -144,27 +246,33 @@ class SemanticSearchService {
       const result = await embeddingService.embed([query]);
       const queryVector = result.embeddings;
       
-      const similarities: { noteId: string; score: number; title: string; content: string }[] = [];
+      // Ensure HNSW index is built
+      await this.ensureHNSWIndex();
       
-      this.embeddings.forEach((embedding) => {
-        const similarity = this.cosineSimilarity(queryVector, embedding.vector);
-        similarities.push({
-          noteId: embedding.id,
-          score: similarity,
-          title: embedding.title,
-          content: embedding.content
-        });
-      });
-      
-      return similarities
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
-        .map(item => ({
-          noteId: item.noteId,
-          title: item.title,
-          content: item.content,
-          score: item.score
-        }));
+      // Use HNSW for fast search if available
+      if (this.hnswIndex && this.embeddings.size > 5) {
+        try {
+          const idMapping = (this.hnswIndex as any).idMapping as Map<number, string>;
+          const hnswResults = this.hnswIndex.searchKNN(queryVector, limit);
+          
+          return hnswResults.map(result => {
+            const noteId = idMapping.get(result.id);
+            const embedding = this.embeddings.get(noteId!);
+            return {
+              noteId: noteId!,
+              title: embedding!.title,
+              content: embedding!.content,
+              score: result.score
+            };
+          }).filter(result => result.noteId); // Filter out any invalid results
+        } catch (hnswError) {
+          console.warn('HNSW search failed, falling back to linear search:', hnswError);
+          return this.fallbackLinearSearch(query, queryVector, limit);
+        }
+      } else {
+        // Use linear search for small datasets or if HNSW is not available
+        return this.fallbackLinearSearch(query, queryVector, limit);
+      }
     } catch (error) {
       console.error('Search failed:', error);
       return [];
@@ -187,6 +295,14 @@ class SemanticSearchService {
 
   getEmbeddingCount(): number {
     return this.embeddings.size;
+  }
+
+  getIndexStatus(): { hasIndex: boolean; indexSize: number; needsRebuild: boolean } {
+    return {
+      hasIndex: this.hnswIndex !== null,
+      indexSize: this.hnswIndex?.nodes.size || 0,
+      needsRebuild: this.indexNeedsRebuild
+    };
   }
 }
 
