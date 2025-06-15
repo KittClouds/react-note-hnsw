@@ -242,12 +242,10 @@ const NotesApp = () => {
 
   const handleContentChange = useCallback((content: string) => {
     if (selectedNoteId) {
-      // Parse content to extract title
       let title = 'Untitled Note';
       try {
         const jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
         
-        // Extract title from first heading or first text content
         if (jsonContent.content && Array.isArray(jsonContent.content)) {
           for (const node of jsonContent.content) {
             if (node.type === 'heading' && node.content && node.content[0]?.text) {
@@ -352,19 +350,15 @@ const NotesApp = () => {
                 selectedNote={selectedNote} 
                 notes={notes} 
                 onTitleChange={handleTitleChange}
+                isDarkMode={isDarkMode}
+                onToggleDarkMode={() => setIsDarkMode(prev => !prev)}
+                onEntityUpdate={handleEntityUpdate}
               />
 
               <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
                 <div></div>
                 <div className="flex items-center gap-2">
                   <RightSidebarTrigger />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsDarkMode(prev => !prev)}
-                  >
-                    {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                  </Button>
                 </div>
               </div>
 
@@ -403,11 +397,7 @@ const NotesApp = () => {
               </div>
             </SidebarInset>
 
-            <RightSidebar 
-              selectedNote={selectedNote}
-              notes={notes}
-              onEntityUpdate={handleEntityUpdate}
-            />
+            <RightSidebar />
           </div>
         </RightSidebarProvider>
       </SidebarProvider>

@@ -1,3 +1,4 @@
+
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
   Breadcrumb,
@@ -8,15 +9,28 @@ import {
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Moon, Sun } from 'lucide-react';
 import { Note } from '@/types/note';
+import { EntityManagerDrawer } from './EntityManagerDrawer';
 
 interface NoteHeaderProps {
   selectedNote: Note | null;
   notes: Note[];
   onTitleChange?: (noteId: string, newTitle: string) => void;
+  isDarkMode?: boolean;
+  onToggleDarkMode?: () => void;
+  onEntityUpdate?: (entityId: string, updates: any) => void;
 }
 
-const NoteHeader = ({ selectedNote, notes, onTitleChange }: NoteHeaderProps) => {
+const NoteHeader = ({ 
+  selectedNote, 
+  notes, 
+  onTitleChange, 
+  isDarkMode = false,
+  onToggleDarkMode,
+  onEntityUpdate
+}: NoteHeaderProps) => {
   const buildBreadcrumbs = (note: Note | null): Note[] => {
     if (!note) return [];
     
@@ -74,6 +88,24 @@ const NoteHeader = ({ selectedNote, notes, onTitleChange }: NoteHeaderProps) => 
           
           {!selectedNote && (
             <span className="text-muted-foreground">No note selected</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <EntityManagerDrawer
+            selectedNote={selectedNote}
+            notes={notes}
+            onEntityUpdate={onEntityUpdate}
+          />
+          {onToggleDarkMode && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onToggleDarkMode}
+            >
+              {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
           )}
         </div>
       </div>
