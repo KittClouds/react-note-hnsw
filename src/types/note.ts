@@ -1,21 +1,7 @@
 
-export interface Note {
-  id: string;
-  title: string;
-  content: string;
-  type: 'note' | 'folder';
-  parentId?: string;
-  nestId?: string; // New field to associate notes with nests
-  children?: Note[];
-  isExpanded?: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { Instance } from "mobx-state-tree";
+import { Note as NoteModel } from "@/stores/models/Note";
+import { Nest as NestModel } from "@/stores/models/Nest";
 
-export interface Nest {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type Note = Instance<typeof NoteModel>;
+export type Nest = Instance<typeof NestModel>;
