@@ -1,13 +1,26 @@
 import { Extension } from '@tiptap/core';
 import { InputRule } from '@tiptap/core';
+import {
+  markPasteRule,
+  nodePasteRule,
+  PasteRule,
+} from '@tiptap/core';
 
-// Fixed regex patterns - removed $ anchors that cause issues
+// Fixed regex patterns for input rules - removed $ anchors that cause issues
 const TAG_REGEX = /#([a-zA-Z0-9_]+)\s/;
 const MENTION_REGEX = /@([a-zA-Z0-9_]+)\s/;
 const LINK_REGEX = /\[\[\s*([^\]\s|][^\]|]*?)\s*(?:\|[^\]]*)?\]\]\s/;
 const ENTITY_REGEX = /\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]\s/;
 const TRIPLE_REGEX = /\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]\s*\(([A-Za-z0-9_]+)\)\s*\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]\s/;
 const BACKLINK_REGEX = /<<\s*([^>\s|][^>|]*?)\s*(?:\|[^>]*?)?>>\s/;
+
+// Regexes for PASTE – no whitespace at the end, global flag enabled
+const TAG_PASTE = /#([a-zA-Z0-9_]+)/g;
+const MENTION_PASTE = /@([a-zA-Z0-9_]+)/g;
+const LINK_PASTE = /\[\[\s*([^\]\s|][^\]|]*?)\s*(?:\|[^\]]*)?\]\]/g;
+const ENTITY_PASTE = /\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]/g;
+const TRIPLE_PASTE = /\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]\s*\(([A-Za-z0-9_]+)\)\s*\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]/g;
+const BACKLINK_PASTE = /<<\s*([^>\s|][^>|]*?)\s*(?:\|[^>]*)?>>/g;
 
 export const NoteSyntax = Extension.create({
   name: 'noteSyntax',
@@ -111,5 +124,69 @@ export const NoteSyntax = Extension.create({
         },
       }),
     ];
+  },
+
+  addPasteRules() {
+    const { schema } = this.editor;
+
+    return [
+      // 1️⃣ Triples – most specific first
+      nodePasteRule({
+        find: TRIPLE_PASTE,
+        type: schema.nodes.triple,
+        getAttributes: match => ({
+          subject: { 
+            kind: match[1], 
+            label: match[2], 
+            attrs: match[3] ? JSON.parse(match[3]) : undefined 
+          },
+          predicate: match[4],
+          object: { 
+            kind: match[5], 
+            label: match[6], 
+            attrs: match[7] ? JSON.parse(match[7]) : undefined 
+          },
+        }),
+      }),
+
+      // 2️⃣ Entities
+      nodePasteRule({
+        find: ENTITY_PASTE,
+        type: schema.nodes.entity,
+        getAttributes: m => ({
+          kind: m[1],
+          label: m[2],
+          attributes: m[3] ? JSON.parse(m[3]) : undefined,
+        }),
+      }),
+
+      // 3️⃣ #tags
+      nodePasteRule({
+        find: TAG_PASTE,
+        type: schema.nodes.tag,
+        getAttributes: m => ({ tag: m[1] }),
+      }),
+
+      // 4️⃣ @mentions (mark)
+      markPasteRule({
+        find: MENTION_PASTE,
+        type: schema.marks.mention,
+        getAttributes: m => ({ id: m[1] }),
+      }),
+
+      // 5️⃣ [[WikiLinks]]
+      nodePasteRule({
+        find: LINK_PASTE,
+        type: schema.nodes.wikilink,
+        getAttributes: m => ({ target: m[1] }),
+      }),
+
+      // 6️⃣ <<backlinks>>
+      nodePasteRule({
+        find: BACKLINK_PASTE,
+        type: schema.nodes.backlink,
+        getAttributes: m => ({ target: m[1] }),
+      }),
+    ] as PasteRule[];
   },
 });
