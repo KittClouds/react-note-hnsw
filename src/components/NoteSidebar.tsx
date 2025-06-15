@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Search, Plus, FileText, Folder, FolderOpen, ChevronRight, MoreHorizontal, Database } from 'lucide-react';
@@ -22,7 +23,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -35,6 +35,7 @@ import { Note, Nest } from '@/types/note';
 import { cn } from '@/lib/utils';
 import InlineRename from './InlineRename';
 import NestView from './NestView';
+import { EnhancedSearchBar } from './EnhancedSearchBar';
 
 interface NoteSidebarProps {
   notes: Note[];
@@ -293,9 +294,10 @@ const NoteSidebar = ({
     <Sidebar className="border-r border-border/50 backdrop-blur-sm">
       <SidebarHeader className="p-4 border-b border-border/50">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="folders" className="text-xs">Folders</TabsTrigger>
             <TabsTrigger value="nests" className="text-xs">Nests</TabsTrigger>
+            <TabsTrigger value="search" className="text-xs">Search</TabsTrigger>
           </TabsList>
 
           <div className="flex items-center justify-between mb-4">
@@ -327,19 +329,6 @@ const NoteSidebar = ({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
-          {activeTab === 'folders' && (
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="search-input"
-                placeholder="Search notes... (Ctrl+K)"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-9 bg-background/50 border-input/50 focus:bg-background focus:border-primary/50 transition-all"
-              />
-            </div>
-          )}
         </Tabs>
       </SidebarHeader>
 
@@ -384,6 +373,17 @@ const NoteSidebar = ({
               onRenameNote={onRenameNote}
               onToggleFolder={onToggleFolder}
             />
+          </TabsContent>
+
+          <TabsContent value="search" className="mt-0">
+            <div className="p-4">
+              <EnhancedSearchBar
+                searchQuery={searchQuery}
+                onSearchChange={onSearchChange}
+                notes={notes}
+                onNoteSelect={onNoteSelect}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </SidebarContent>
