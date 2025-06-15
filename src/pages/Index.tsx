@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { 
   SidebarProvider, 
@@ -102,7 +103,7 @@ const NotesApp = () => {
 
   const createNewNote = useCallback((parentId?: string, nestId?: string) => {
     const newNote: Note = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       title: 'Untitled Note',
       content: DEFAULT_CONTENT,
       type: 'note',
@@ -122,7 +123,7 @@ const NotesApp = () => {
 
   const createNewFolder = useCallback((parentId?: string, nestId?: string) => {
     const newFolder: Note = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       title: 'New Folder',
       content: '',
       type: 'folder',
@@ -142,7 +143,7 @@ const NotesApp = () => {
 
   const createNewNest = useCallback(() => {
     const newNest: Nest = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       name: 'New Nest',
       description: '',
       createdAt: new Date(),
