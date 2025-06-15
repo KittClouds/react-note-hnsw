@@ -1,22 +1,17 @@
 
-import { Mark } from '@tiptap/core';
+import { Node } from '@tiptap/core';
 
-export const Backlink = Mark.create({
+export const Backlink = Node.create({
   name: 'backlink',
+
+  group: 'inline',
+
+  inline: true,
 
   addAttributes() {
     return {
       target: {
         default: null,
-        parseHTML: element => element.getAttribute('data-target'),
-        renderHTML: attributes => {
-          if (!attributes.target) {
-            return {};
-          }
-          return {
-            'data-target': attributes.target,
-          };
-        },
       },
     };
   },
@@ -30,10 +25,24 @@ export const Backlink = Mark.create({
   },
 
   renderHTML({ HTMLAttributes }) {
+    const { target } = HTMLAttributes;
     return ['span', { 
-      'data-target': HTMLAttributes.target,
-      class: 'bg-gray-100 text-gray-700 px-1 rounded text-sm font-medium border',
+      'data-target': target,
+      class: 'bg-gray-100 text-gray-700 px-1 rounded text-sm font-medium border inline-block mx-1',
       ...HTMLAttributes 
-    }, `<<${HTMLAttributes.target}>>`];
+    }, `<<${target}>>`];
+  },
+
+  addNodeView() {
+    return ({ HTMLAttributes }) => {
+      const span = document.createElement('span');
+      const { target } = HTMLAttributes;
+      span.className = 'bg-gray-100 text-gray-700 px-1 rounded text-sm font-medium border inline-block mx-1';
+      span.setAttribute('data-target', target);
+      span.textContent = `<<${target}>>`;
+      return {
+        dom: span,
+      };
+    };
   },
 });

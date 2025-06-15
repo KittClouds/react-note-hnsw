@@ -1,22 +1,17 @@
 
-import { Mark } from '@tiptap/core';
+import { Node } from '@tiptap/core';
 
-export const Tag = Mark.create({
+export const Tag = Node.create({
   name: 'tag',
+
+  group: 'inline',
+
+  inline: true,
 
   addAttributes() {
     return {
       tag: {
         default: null,
-        parseHTML: element => element.getAttribute('data-tag'),
-        renderHTML: attributes => {
-          if (!attributes.tag) {
-            return {};
-          }
-          return {
-            'data-tag': attributes.tag,
-          };
-        },
       },
     };
   },
@@ -30,10 +25,24 @@ export const Tag = Mark.create({
   },
 
   renderHTML({ HTMLAttributes }) {
+    const { tag } = HTMLAttributes;
     return ['span', { 
-      'data-tag': HTMLAttributes.tag,
-      class: 'bg-blue-100 text-blue-800 px-1 rounded text-sm font-medium',
+      'data-tag': tag,
+      class: 'bg-blue-100 text-blue-800 px-1 rounded text-sm font-medium inline-block mx-1',
       ...HTMLAttributes 
-    }, `#${HTMLAttributes.tag}`];
+    }, `#${tag}`];
+  },
+
+  addNodeView() {
+    return ({ HTMLAttributes }) => {
+      const span = document.createElement('span');
+      const { tag } = HTMLAttributes;
+      span.className = 'bg-blue-100 text-blue-800 px-1 rounded text-sm font-medium inline-block mx-1';
+      span.setAttribute('data-tag', tag);
+      span.textContent = `#${tag}`;
+      return {
+        dom: span,
+      };
+    };
   },
 });

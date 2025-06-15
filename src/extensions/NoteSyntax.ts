@@ -2,13 +2,13 @@
 import { Extension } from '@tiptap/core';
 import { InputRule } from '@tiptap/core';
 
-// Regex library - updated for TipTap input rules (must match at end of line)
-const TAG_REGEX = /#([a-zA-Z0-9_]+)$/;
-const MENTION_REGEX = /@([a-zA-Z0-9_]+)$/;
-const LINK_REGEX = /\[\[\s*([^\]\s|][^\]|]*?)\s*(?:\|[^\]]*)?\]\]$/;
-const ENTITY_REGEX = /\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]$/;
-const TRIPLE_REGEX = /\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]\s*\(([A-Za-z0-9_]+)\)\s*\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]$/;
-const BACKLINK_REGEX = /<<\s*([^>\s|][^>|]*?)\s*(?:\|[^>]*)?>>$/;
+// Fixed regex patterns - removed $ anchors that cause issues
+const TAG_REGEX = /#([a-zA-Z0-9_]+)\s/;
+const MENTION_REGEX = /@([a-zA-Z0-9_]+)\s/;
+const LINK_REGEX = /\[\[\s*([^\]\s|][^\]|]*?)\s*(?:\|[^\]]*)?\]\]\s/;
+const ENTITY_REGEX = /\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]\s/;
+const TRIPLE_REGEX = /\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]\s*\(([A-Za-z0-9_]+)\)\s*\[([A-Za-z0-9_]+)\|([^\]]+?)(?:\|({.*?}))?\]\s/;
+const BACKLINK_REGEX = /<<\s*([^>\s|][^>|]*?)\s*(?:\|[^>]*?)?>>\s/;
 
 export const NoteSyntax = Extension.create({
   name: 'noteSyntax',
@@ -37,7 +37,7 @@ export const NoteSyntax = Extension.create({
           if (!nodeType) return null;
 
           const node = nodeType.create({ subject, predicate, object });
-          const tr = state.tr.replaceRangeWith(range.from, range.to, node);
+          const tr = state.tr.replaceRangeWith(range.from, range.to - 1, node);
           return tr;
         },
       }),
@@ -54,7 +54,7 @@ export const NoteSyntax = Extension.create({
             label: match[2],
             attributes: match[3] ? JSON.parse(match[3]) : undefined,
           });
-          const tr = state.tr.replaceRangeWith(range.from, range.to, node);
+          const tr = state.tr.replaceRangeWith(range.from, range.to - 1, node);
           return tr;
         },
       }),
@@ -63,13 +63,11 @@ export const NoteSyntax = Extension.create({
       new InputRule({
         find: TAG_REGEX,
         handler: ({ state, range, match }) => {
-          const markType = schema.marks.tag;
-          if (!markType) return null;
+          const nodeType = schema.nodes.tag;
+          if (!nodeType) return null;
 
-          const mark = markType.create({ tag: match[1] });
-          const tr = state.tr
-            .addMark(range.from, range.to, mark)
-            .insertText(' ');
+          const node = nodeType.create({ tag: match[1] });
+          const tr = state.tr.replaceRangeWith(range.from, range.to - 1, node);
           return tr;
         },
       }),
@@ -83,8 +81,7 @@ export const NoteSyntax = Extension.create({
 
           const mark = markType.create({ id: match[1] });
           const tr = state.tr
-            .addMark(range.from, range.to, mark)
-            .insertText(' ');
+            .addMark(range.from, range.to - 1, mark);
           return tr;
         },
       }),
@@ -101,8 +98,7 @@ export const NoteSyntax = Extension.create({
             target: '_blank',
           });
           const tr = state.tr
-            .addMark(range.from, range.to, mark)
-            .insertText(' ');
+            .addMark(range.from, range.to - 1, mark);
           return tr;
         },
       }),
@@ -111,13 +107,11 @@ export const NoteSyntax = Extension.create({
       new InputRule({
         find: BACKLINK_REGEX,
         handler: ({ state, range, match }) => {
-          const markType = schema.marks.backlink;
-          if (!markType) return null;
+          const nodeType = schema.nodes.backlink;
+          if (!nodeType) return null;
 
-          const mark = markType.create({ target: match[1] });
-          const tr = state.tr
-            .addMark(range.from, range.to, mark)
-            .insertText(' ');
+          const node = nodeType.create({ target: match[1] });
+          const tr = state.tr.replaceRangeWith(range.from, range.to - 1, node);
           return tr;
         },
       }),
