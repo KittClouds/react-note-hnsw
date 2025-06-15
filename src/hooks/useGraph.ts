@@ -1,8 +1,145 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Graph } from '@/services/Graph';
-import { GraphInterface } from '@/services/GraphInterface';
+import { Graph } from '@/services/GraphInterface';
 import { Note, Nest } from '@/types/note';
+
+// Create a simple interface wrapper for the Graph class
+class GraphInterface {
+  constructor(private graph: Graph) {}
+
+  initialize() {
+    // Create root structure if not exists
+    const rootNodes = this.graph.findNodes({ type: 'root' });
+    if (rootNodes.length === 0) {
+      const rootNode = this.graph.addNode('root', { title: 'Root' });
+      const standardNode = this.graph.addNode('standard', { title: 'Standard' }, rootNode.id);
+      const nestRootNode = this.graph.addNode('nest', { title: 'Nests' }, rootNode.id);
+    }
+  }
+
+  createNote(title: string, content: string, type: 'note' | 'folder', parentId?: string, nodeId?: string): Note {
+    const standardNodes = this.graph.findNodes({ type: 'standard' });
+    const actualParentId = parentId || (standardNodes.length > 0 ? standardNodes[0].id : undefined);
+    
+    const noteNode = this.graph.addNode(type, {
+      title,
+      content,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }, actualParentId, nodeId);
+
+    return {
+      id: noteNode.id,
+      title: noteNode.props.title,
+      content: noteNode.props.content,
+      type: type,
+      parentId: actualParentId,
+      createdAt: noteNode.props.createdAt,
+      updatedAt: noteNode.props.updatedAt
+    };
+  }
+
+  createNoteInNest(nestId: string, title: string, content: string, type: 'note' | 'folder', parentId?: string, nodeId?: string): Note {
+    const noteNode = this.graph.addNode(type, {
+      title,
+      content,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      nestId
+    }, parentId, nodeId);
+
+    return {
+      id: noteNode.id,
+      title: noteNode.props.title,
+      content: noteNode.props.content,
+      type: type,
+      parentId,
+      nestId,
+      createdAt: noteNode.props.createdAt,
+      updatedAt: noteNode.props.updatedAt
+    };
+  }
+
+  createNest(name: string, description?: string, nodeId?: string): Nest {
+    const nestRootNodes = this.graph.findNodes({ type: 'nest' });
+    const nestRootId = nestRootNodes.length > 0 ? nestRootNodes[0].id : undefined;
+
+    const nestNode = this.graph.addNode('subnest', {
+      name,
+      description: description || '',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }, nestRootId, nodeId);
+
+    return {
+      id: nestNode.id,
+      name: nestNode.props.name,
+      description: nestNode.props.description,
+      createdAt: nestNode.props.createdAt,
+      updatedAt: nestNode.props.updatedAt
+    };
+  }
+
+  getAllNotes(): Note[] {
+    const noteNodes = this.graph.findNodes({ type: 'note' });
+    const folderNodes = this.graph.findNodes({ type: 'folder' });
+    
+    return [...noteNodes, ...folderNodes].map(node => ({
+      id: node.id,
+      title: node.props.title,
+      content: node.props.content,
+      type: node.type as 'note' | 'folder',
+      parentId: this.graph.getParent(node.id)?.id,
+      nestId: node.props.nestId,
+      createdAt: node.props.createdAt,
+      updatedAt: node.props.updatedAt
+    }));
+  }
+
+  getAllNests(): Nest[] {
+    const nestNodes = this.graph.findNodes({ type: 'subnest' });
+    
+    return nestNodes.map(node => ({
+      id: node.id,
+      name: node.props.name,
+      description: node.props.description,
+      createdAt: node.props.createdAt,
+      updatedAt: node.props.updatedAt
+    }));
+  }
+
+  updateNoteTitle(id: string, title: string) {
+    this.graph.updateNodeProps(id, { title, updatedAt: new Date() });
+  }
+
+  updateNoteContent(id: string, content: string) {
+    this.graph.updateNodeProps(id, { content, updatedAt: new Date() });
+  }
+
+  updateNestName(id: string, name: string) {
+    this.graph.updateNodeProps(id, { name, updatedAt: new Date() });
+  }
+
+  updateNestDescription(id: string, description: string) {
+    this.graph.updateNodeProps(id, { description, updatedAt: new Date() });
+  }
+
+  deleteNote(id: string) {
+    this.graph.removeNode(id);
+  }
+
+  deleteNest(id: string) {
+    this.graph.removeNodeAndDescendants(id);
+  }
+
+  moveNote(noteId: string, newParentId: string | null) {
+    this.graph.move(noteId, { parent: newParentId });
+  }
+
+  get graph() {
+    return this.graph;
+  }
+}
 
 export function useGraph() {
   const [graph] = useState(() => new Graph());
