@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,9 @@ const DEFAULT_CONTENT = JSON.stringify({
 const NotesApp = observer(() => {
   const notesStore = useNotesStore();
   const uiStore = useUIStore();
+  
+  // Add connections state
+  const [connections, setConnections] = useState<ParsedConnections | null>(null);
   
   // Add graph initialization with feature flags
   const { graph, isInitialized: graphInitialized } = useGraph();
@@ -183,9 +186,17 @@ const NotesApp = observer(() => {
     }
   }, [notesStore, uiStore]);
 
-  const handleConnectionsChange = useCallback((connections: ParsedConnections) => {
+  const handleConnectionsChange = useCallback((newConnections: ParsedConnections) => {
+    setConnections(newConnections);
     if (uiStore.selectedNoteId) {
-      console.log('Parsed connections for note:', uiStore.selectedNoteId, connections);
+      console.log('Parsed connections for note:', uiStore.selectedNoteId, newConnections);
+    }
+  }, [uiStore.selectedNoteId]);
+
+  // Clear connections when note selection changes
+  useEffect(() => {
+    if (!uiStore.selectedNoteId) {
+      setConnections(null);
     }
   }, [uiStore.selectedNoteId]);
 

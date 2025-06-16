@@ -20,9 +20,17 @@ import { SimpleLayout } from './layouts/SimpleLayout';
 import { CharacterSheetLayout } from './layouts/CharacterSheetLayout';
 import { FactionOverviewLayout } from './layouts/FactionOverviewLayout';
 import { TypedAttribute, AttributeType, AttributeValue, ENTITY_SCHEMAS } from '@/types/attributes';
+import { ParsedConnections } from '@/utils/parsingUtils';
 
-export function EntityAttributePanel() {
-  const { entities } = useActiveNoteConnections();
+interface EntityAttributePanelProps {
+  connections?: ParsedConnections | null;
+}
+
+export function EntityAttributePanel({ connections }: EntityAttributePanelProps) {
+  // Use connections prop if provided, otherwise fall back to hook
+  const hookConnections = useActiveNoteConnections();
+  const entities = connections?.entities || hookConnections.entities;
+  
   const activeNote = useActiveNote();
   const [selectedEntity, setSelectedEntity] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('simple');
