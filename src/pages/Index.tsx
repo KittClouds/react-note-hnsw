@@ -324,7 +324,7 @@ const NotesApp = observer(() => {
                   <>
                     <div className="flex-1 overflow-hidden p-4">
                       <RichEditor
-                        key={selectedNote.id} // Force re-initialization when switching notes
+                        key={selectedNote.id}
                         noteId={selectedNote.id}
                         content={selectedNote.content}
                         onChange={handleContentChange}
@@ -334,7 +334,7 @@ const NotesApp = observer(() => {
                     </div>
                     
                     <ConnectionsPanel
-                      connections={null}
+                      connections={connections}
                       isOpen={uiStore.connectionsPanelOpen}
                       onToggle={uiStore.toggleConnectionsPanel}
                     />
@@ -361,7 +361,7 @@ const NotesApp = observer(() => {
               </div>
             </SidebarInset>
 
-            <RightSidebar />
+            <RightSidebar connections={connections} />
           </div>
         </RightSidebarProvider>
       </SidebarProvider>

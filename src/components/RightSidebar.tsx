@@ -7,8 +7,13 @@ import {
 } from "@/components/ui/sidebar";
 import { RightSidebar as RightSidebarWrapper } from './RightSidebarProvider';
 import { EntityAttributePanel } from './entity-attributes/EntityAttributePanel';
+import { ParsedConnections } from '@/utils/parsingUtils';
 
-const RightSidebar = () => {
+interface RightSidebarProps {
+  connections?: ParsedConnections | null;
+}
+
+const RightSidebar = ({ connections }: RightSidebarProps) => {
   return (
     <RightSidebarWrapper className="border-l border-border/50 backdrop-blur-sm">
       <SidebarHeader className="p-4 border-b border-border/50">
@@ -19,7 +24,7 @@ const RightSidebar = () => {
       </SidebarHeader>
 
       <SidebarContent className="overflow-auto p-0">
-        <EntityAttributePanel />
+        <EntityAttributePanel connections={connections} />
       </SidebarContent>
     </RightSidebarWrapper>
   );
