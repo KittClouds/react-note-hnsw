@@ -35,6 +35,16 @@ export function EntityAttributePanel({ connections }: EntityAttributePanelProps)
   const [selectedEntity, setSelectedEntity] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('simple');
 
+  // Debug logging to see the raw entity data structure
+  useEffect(() => {
+    console.log('EntityAttributePanel - Raw entities:', entities);
+    console.log('EntityAttributePanel - Selected entity:', selectedEntity);
+    if (selectedEntity?.attributes) {
+      console.log('EntityAttributePanel - Selected entity attributes:', selectedEntity.attributes);
+      console.log('EntityAttributePanel - Attributes type:', typeof selectedEntity.attributes);
+    }
+  }, [entities, selectedEntity]);
+
   // Group entities by kind
   const entityGroups = useMemo(() => {
     const groups: Record<string, any[]> = {};
@@ -73,27 +83,55 @@ export function EntityAttributePanel({ connections }: EntityAttributePanelProps)
     }
   }, [entities, selectedEntity]);
 
-  // Convert entity attributes to typed attributes (reusing logic from EntityItem.tsx)
+  // Convert entity attributes to typed attributes with improved parsing
   const typedAttributes = useMemo((): TypedAttribute[] => {
     if (!selectedEntity?.attributes) return [];
 
-    // If already typed attributes
+    console.log('Converting attributes for entity:', selectedEntity.label);
+    console.log('Raw attributes:', selectedEntity.attributes);
+
+    // If already typed attributes array
     if (Array.isArray(selectedEntity.attributes)) {
+      console.log('Attributes are already array, returning as-is');
       return selectedEntity.attributes;
     }
 
-    // Convert legacy object format to typed attributes
+    let parsedAttributes: Record<string, any> = {};
+
+    // Handle different attribute formats
+    if (typeof selectedEntity.attributes === 'string') {
+      try {
+        // Try to parse JSON string
+        parsedAttributes = JSON.parse(selectedEntity.attributes);
+        console.log('Parsed JSON string attributes:', parsedAttributes);
+      } catch (error) {
+        console.warn('Failed to parse attributes as JSON:', error);
+        // If parsing fails, treat as single text attribute
+        parsedAttributes = { text: selectedEntity.attributes };
+      }
+    } else if (typeof selectedEntity.attributes === 'object') {
+      // Already an object
+      parsedAttributes = selectedEntity.attributes;
+      console.log('Using object attributes directly:', parsedAttributes);
+    }
+
     const entitySchema = ENTITY_SCHEMAS.find(schema => schema.kind === selectedEntity.kind);
     const attributes: TypedAttribute[] = [];
 
-    Object.entries(selectedEntity.attributes).forEach(([key, value]) => {
+    console.log('Found schema for kind:', selectedEntity.kind, entitySchema);
+
+    // Convert parsed attributes to typed attributes
+    Object.entries(parsedAttributes).forEach(([key, value]) => {
       const schemaAttr = entitySchema?.attributes.find(attr => attr.name === key);
       
+      console.log(`Processing attribute ${key}:`, value, 'Schema:', schemaAttr);
+      
       attributes.push({
-        id: `legacy-${key}-${Date.now()}`,
+        id: `entity-${key}-${Date.now()}`,
         name: key,
         type: schemaAttr?.type || 'Text',
         value: value as any,
+        unit: schemaAttr?.unit,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
@@ -103,6 +141,7 @@ export function EntityAttributePanel({ connections }: EntityAttributePanelProps)
     if (entitySchema) {
       entitySchema.attributes.forEach(schemaAttr => {
         if (!attributes.find(attr => attr.name === schemaAttr.name)) {
+          console.log(`Adding missing schema attribute: ${schemaAttr.name}`);
           attributes.push({
             id: `schema-${schemaAttr.name}-${Date.now()}`,
             name: schemaAttr.name,
@@ -116,6 +155,7 @@ export function EntityAttributePanel({ connections }: EntityAttributePanelProps)
       });
     }
 
+    console.log('Final typed attributes:', attributes);
     return attributes;
   }, [selectedEntity]);
 
