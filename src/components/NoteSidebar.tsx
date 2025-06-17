@@ -57,6 +57,11 @@ interface NoteSidebarProps {
   onToggleFolder: (id: string) => void;
 }
 
+// Type for tree nodes that includes children
+interface TreeNote extends Note {
+  children: TreeNote[];
+}
+
 const NoteSidebar = observer(({
   notes,
   nests,
@@ -96,14 +101,14 @@ const NoteSidebar = observer(({
     );
   }, [folderNotes, searchQuery]);
 
-  // Build tree structure preserving original note references for MobX reactivity
+  // Build tree structure with proper typing
   const treeNotes = useMemo(() => {
-    const noteMap = new Map<string, Note & { children: Note[] }>();
-    const rootNotes: (Note & { children: Note[] })[] = [];
+    const noteMap = new Map<string, TreeNote>();
+    const rootNotes: TreeNote[] = [];
 
-    // Create map of all notes with children arrays - preserve original note references
+    // Create map of all notes with children arrays - preserve original note references for MobX reactivity
     filteredFolderNotes.forEach(note => {
-      noteMap.set(note.id, { ...note, children: [] });
+      noteMap.set(note.id, { ...note, children: [] } as TreeNote);
     });
 
     // Build tree structure efficiently
@@ -136,8 +141,8 @@ const NoteSidebar = observer(({
     setRenamingId(null);
   }, [onRenameNote]);
 
-  // Optimized tree renderer - now checks live note state for isExpanded
-  const renderNoteTree = useCallback((treeNotes: (Note & { children: Note[] })[], level: number = 0, isLast: boolean[] = []): React.ReactNode => {
+  // Optimized tree renderer - uses live note state for isExpanded
+  const renderNoteTree = useCallback((treeNotes: TreeNote[], level: number = 0, isLast: boolean[] = []): React.ReactNode => {
     return treeNotes.map((note, index) => {
       const isLastItem = index === treeNotes.length - 1;
       const currentIsLast = [...isLast, isLastItem];
