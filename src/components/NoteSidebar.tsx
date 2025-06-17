@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useMemo, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Search, Plus, FileText, Folder, FolderOpen, ChevronRight, MoreHorizontal, Database } from 'lucide-react';
 import {
@@ -77,26 +78,41 @@ const NoteSidebar = ({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('folders');
 
-  // Filter notes to only show those not in any nest for the folders tab
-  const folderNotes = notes.filter(note => !note.nestId);
-  const nestNotes = notes.filter(note => note.nestId);
+  // Memoized filtered notes - only recalculate when notes or search changes
+  const { folderNotes, nestNotes } = useMemo(() => {
+    console.time('FilterNotes');
+    const folders = notes.filter(note => !note.nestId);
+    const nests = notes.filter(note => note.nestId);
+    console.timeEnd('FilterNotes');
+    return { folderNotes: folders, nestNotes: nests };
+  }, [notes]);
 
-  const truncateText = (text: string, length: number = 60) => {
-    const plainText = text.replace(/<[^>]*>/g, '');
-    return plainText.length > length ? plainText.substring(0, length) + '...' : plainText;
-  };
+  // Memoized search results
+  const filteredFolderNotes = useMemo(() => {
+    if (!searchQuery.trim()) return folderNotes;
+    console.time('FilterSearch');
+    const searchTerm = searchQuery.toLowerCase();
+    const results = folderNotes.filter(note => 
+      note.title.toLowerCase().includes(searchTerm) ||
+      note.content.toLowerCase().includes(searchTerm)
+    );
+    console.timeEnd('FilterSearch');
+    return results;
+  }, [folderNotes, searchQuery]);
 
-  const buildTree = (notes: Note[]): NoteWithChildren[] => {
+  // Optimized tree building with memoization
+  const treeNotes = useMemo(() => {
+    console.time('BuildTree');
     const noteMap = new Map<string, NoteWithChildren>();
     const rootNotes: NoteWithChildren[] = [];
 
     // Create map of all notes with children arrays
-    notes.forEach(note => {
+    filteredFolderNotes.forEach(note => {
       noteMap.set(note.id, { ...note, children: [] });
     });
 
-    // Build tree structure
-    notes.forEach(note => {
+    // Build tree structure efficiently
+    filteredFolderNotes.forEach(note => {
       const nodeNote = noteMap.get(note.id)!;
       if (note.parentId) {
         const parent = noteMap.get(note.parentId);
@@ -111,15 +127,24 @@ const NoteSidebar = ({
       }
     });
 
+    console.timeEnd('BuildTree');
     return rootNotes;
-  };
+  }, [filteredFolderNotes]);
 
-  const handleRename = (noteId: string, newTitle: string) => {
+  // Memoized text truncation
+  const truncateText = useCallback((text: string, length: number = 60) => {
+    const plainText = text.replace(/<[^>]*>/g, '');
+    return plainText.length > length ? plainText.substring(0, length) + '...' : plainText;
+  }, []);
+
+  // Memoized rename handler
+  const handleRename = useCallback((noteId: string, newTitle: string) => {
     onRenameNote(noteId, newTitle);
     setRenamingId(null);
-  };
+  }, [onRenameNote]);
 
-  const renderNoteTree = (treeNotes: NoteWithChildren[], level: number = 0, isLast: boolean[] = []): React.ReactNode => {
+  // Memoized tree renderer with performance optimizations
+  const renderNoteTree = useCallback((treeNotes: NoteWithChildren[], level: number = 0, isLast: boolean[] = []): React.ReactNode => {
     return treeNotes.map((note, index) => {
       const isLastItem = index === treeNotes.length - 1;
       const currentIsLast = [...isLast, isLastItem];
@@ -280,14 +305,7 @@ const NoteSidebar = ({
 
       return noteContent;
     });
-  };
-
-  const filteredFolderNotes = folderNotes.filter(note => 
-    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const treeNotes = buildTree(filteredFolderNotes);
+  }, [selectedNoteId, hoveredId, renamingId, onToggleFolder, onNoteSelect, onNewNote, onNewFolder, onDeleteNote, handleRename, truncateText]);
 
   return (
     <Sidebar className="border-r border-border/50 backdrop-blur-sm">

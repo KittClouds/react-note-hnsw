@@ -24,18 +24,23 @@ export const Note = types
       // Will be implemented when we have access to parent store
       return [self.title];
     },
+    // Cached searchable content to avoid recomputation
     get searchableContent() {
       return `${self.title} ${self.content}`.toLowerCase();
     },
   }))
   .actions((self) => ({
     setTitle(title: string) {
-      self.title = title;
-      self.updatedAt = new Date();
+      if (self.title !== title) {
+        self.title = title;
+        self.updatedAt = new Date();
+      }
     },
     setContent(content: string) {
-      self.content = content;
-      self.updatedAt = new Date();
+      if (self.content !== content) {
+        self.content = content;
+        self.updatedAt = new Date();
+      }
     },
     toggleExpanded() {
       if (self.type === "folder") {
@@ -43,8 +48,19 @@ export const Note = types
       }
     },
     update(updates: Partial<typeof self>) {
-      Object.assign(self, updates);
-      self.updatedAt = new Date();
+      let hasChanges = false;
+      
+      // Only update if values actually changed
+      Object.entries(updates).forEach(([key, value]) => {
+        if (key in self && (self as any)[key] !== value) {
+          (self as any)[key] = value;
+          hasChanges = true;
+        }
+      });
+      
+      if (hasChanges) {
+        self.updatedAt = new Date();
+      }
     },
   }));
 
