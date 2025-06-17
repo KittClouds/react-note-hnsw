@@ -19,7 +19,7 @@ import { GraphSyncControls } from '@/components/GraphSyncControls';
 import NoteHeader from '@/components/NoteHeader';
 import ConnectionsPanel from '@/components/ConnectionsPanel';
 import RightSidebar from '@/components/RightSidebar';
-import { RightSidebarProvider } from '@/components/RightSidebarProvider';
+import { RightSidebarProvider, RightSidebarTrigger } from '@/components/RightSidebarProvider';
 import { useNotesStore, useUIStore } from '@/stores/StoreProvider';
 
 const DEFAULT_CONTENT = JSON.stringify({
@@ -296,9 +296,24 @@ const NotesApp = observer(() => {
                 isDarkMode={uiStore.isDarkMode}
                 onToggleDarkMode={uiStore.toggleDarkMode}
                 onEntityUpdate={handleEntityUpdate}
-                showGraphControls={uiStore.showGraphControls}
-                onToggleGraphControls={uiStore.toggleGraphControls}
               />
+
+              <div className="flex items-center justify-between px-4 py-1 border-b bg-background/50">
+                <div className="flex items-center gap-2">
+                  {uiStore.showGraphControls && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={uiStore.toggleGraphControls}
+                    >
+                      Hide Graph Controls
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <RightSidebarTrigger />
+                </div>
+              </div>
 
               {/* Graph Controls Panel */}
               {uiStore.showGraphControls && (
