@@ -1,5 +1,6 @@
 
 import { useState, useMemo, useCallback } from 'react';
+import { observer } from 'mobx-react-lite';
 import { formatDistanceToNow } from 'date-fns';
 import { Search, Plus, FileText, Folder, FolderOpen, ChevronRight, MoreHorizontal, Database } from 'lucide-react';
 import {
@@ -31,7 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Note, Nest, NoteWithChildren } from '@/types/note';
+import { Note, Nest } from '@/types/note';
 import { cn } from '@/lib/utils';
 import InlineRename from './InlineRename';
 import NestView from './NestView';
@@ -56,7 +57,7 @@ interface NoteSidebarProps {
   onToggleFolder: (id: string) => void;
 }
 
-const NoteSidebar = ({
+const NoteSidebar = observer(({
   notes,
   nests,
   selectedNoteId,
@@ -80,33 +81,27 @@ const NoteSidebar = ({
 
   // Memoized filtered notes - only recalculate when notes or search changes
   const { folderNotes, nestNotes } = useMemo(() => {
-    console.time('FilterNotes');
     const folders = notes.filter(note => !note.nestId);
     const nests = notes.filter(note => note.nestId);
-    console.timeEnd('FilterNotes');
     return { folderNotes: folders, nestNotes: nests };
   }, [notes]);
 
   // Memoized search results
   const filteredFolderNotes = useMemo(() => {
     if (!searchQuery.trim()) return folderNotes;
-    console.time('FilterSearch');
     const searchTerm = searchQuery.toLowerCase();
-    const results = folderNotes.filter(note => 
+    return folderNotes.filter(note => 
       note.title.toLowerCase().includes(searchTerm) ||
       note.content.toLowerCase().includes(searchTerm)
     );
-    console.timeEnd('FilterSearch');
-    return results;
   }, [folderNotes, searchQuery]);
 
-  // Optimized tree building with memoization
+  // Build tree structure preserving original note references for MobX reactivity
   const treeNotes = useMemo(() => {
-    console.time('BuildTree');
-    const noteMap = new Map<string, NoteWithChildren>();
-    const rootNotes: NoteWithChildren[] = [];
+    const noteMap = new Map<string, Note & { children: Note[] }>();
+    const rootNotes: (Note & { children: Note[] })[] = [];
 
-    // Create map of all notes with children arrays
+    // Create map of all notes with children arrays - preserve original note references
     filteredFolderNotes.forEach(note => {
       noteMap.set(note.id, { ...note, children: [] });
     });
@@ -117,7 +112,6 @@ const NoteSidebar = ({
       if (note.parentId) {
         const parent = noteMap.get(note.parentId);
         if (parent) {
-          if (!parent.children) parent.children = [];
           parent.children.push(nodeNote);
         } else {
           rootNotes.push(nodeNote);
@@ -127,7 +121,6 @@ const NoteSidebar = ({
       }
     });
 
-    console.timeEnd('BuildTree');
     return rootNotes;
   }, [filteredFolderNotes]);
 
@@ -143,11 +136,14 @@ const NoteSidebar = ({
     setRenamingId(null);
   }, [onRenameNote]);
 
-  // Memoized tree renderer with performance optimizations
-  const renderNoteTree = useCallback((treeNotes: NoteWithChildren[], level: number = 0, isLast: boolean[] = []): React.ReactNode => {
+  // Optimized tree renderer - now checks live note state for isExpanded
+  const renderNoteTree = useCallback((treeNotes: (Note & { children: Note[] })[], level: number = 0, isLast: boolean[] = []): React.ReactNode => {
     return treeNotes.map((note, index) => {
       const isLastItem = index === treeNotes.length - 1;
       const currentIsLast = [...isLast, isLastItem];
+      
+      // Find the original note for live state checking
+      const liveNote = notes.find(n => n.id === note.id);
       
       const noteContent = (
         <div 
@@ -207,10 +203,10 @@ const NoteSidebar = ({
                     <ChevronRight
                       className={cn(
                         "h-3 w-3 text-muted-foreground transition-transform duration-200",
-                        note.isExpanded && "transform rotate-90"
+                        liveNote?.isExpanded && "transform rotate-90"
                       )}
                     />
-                    {note.isExpanded ? (
+                    {liveNote?.isExpanded ? (
                       <FolderOpen className="h-4 w-4 ml-1 text-blue-500" />
                     ) : (
                       <Folder className="h-4 w-4 ml-1 text-blue-500" />
@@ -274,7 +270,7 @@ const NoteSidebar = ({
             </SidebarMenuButton>
           </SidebarMenuItem>
           
-          {note.type === 'folder' && note.isExpanded && note.children && note.children.length > 0 && (
+          {note.type === 'folder' && liveNote?.isExpanded && note.children && note.children.length > 0 && (
             <div className="animate-fade-in">
               {renderNoteTree(note.children, level + 1, currentIsLast)}
             </div>
@@ -305,7 +301,7 @@ const NoteSidebar = ({
 
       return noteContent;
     });
-  }, [selectedNoteId, hoveredId, renamingId, onToggleFolder, onNoteSelect, onNewNote, onNewFolder, onDeleteNote, handleRename, truncateText]);
+  }, [selectedNoteId, hoveredId, renamingId, onToggleFolder, onNoteSelect, onNewNote, onNewFolder, onDeleteNote, handleRename, truncateText, notes]);
 
   return (
     <Sidebar className="border-r border-border/50 backdrop-blur-sm">
@@ -406,6 +402,6 @@ const NoteSidebar = ({
       </SidebarContent>
     </Sidebar>
   );
-};
+});
 
 export default NoteSidebar;
